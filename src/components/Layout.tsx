@@ -9,12 +9,12 @@ export default function Layout() {
   const unreadCount = notifications.filter((n) => !n.read && (!n.userId || n.userId === currentUser?.id)).length;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-[#121212] text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="flex flex-col h-screen bg-primary-50/30 dark:bg-[#121212] text-slate-900 dark:text-slate-100 transition-colors">
       <main className="flex-1 overflow-y-auto pb-16">
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 w-full bg-white dark:bg-[#1E1E1E] border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-16 px-2 z-50 transition-colors">
+      <nav className="fixed bottom-0 w-full bg-white dark:bg-[#1E1E1E] border-t border-primary-100 dark:border-primary-900/30 flex justify-around items-center h-16 px-2 z-50 transition-colors">
         <NavItem to="/" icon={<FolderKanban size={24} />} label="Projects" />
         <NavItem to="/tasks" icon={<CheckSquare size={24} />} label="Tasks" />
         <NavItem 

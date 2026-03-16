@@ -36,9 +36,9 @@ export default function ProjectDetails() {
   ];
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 dark:bg-[#121212] text-slate-900 dark:text-slate-100">
+    <div className="flex flex-col h-screen bg-primary-50/30 dark:bg-[#121212] text-slate-900 dark:text-slate-100 transition-colors">
       {/* Header */}
-      <header className="bg-white dark:bg-[#1E1E1E] border-b border-slate-200 dark:border-slate-800 pt-safe">
+      <header className="bg-white dark:bg-[#1E1E1E] border-b border-primary-100 dark:border-primary-900/30 pt-safe">
         <div className="flex items-center justify-between px-4 py-3">
           <button onClick={() => navigate('/')} className="p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">
             <ArrowLeft size={24} />
@@ -61,14 +61,14 @@ export default function ProjectDetails() {
             </button>
             
             {showSettingsMenu && (
-              <div className="absolute top-12 right-0 bg-white dark:bg-[#2C2C2C] rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 py-1 z-50 min-w-[180px]">
+              <div className="absolute top-12 right-0 bg-white dark:bg-[#2C2C2C] rounded-xl shadow-lg border border-primary-100 dark:border-primary-900/30 py-1 z-50 min-w-[180px]">
                 {userRole === 'leader' && (
                   <button
                     onClick={() => {
                       updateProjectStatus(project.id, project.status === 'completed' ? 'active' : 'completed');
                       setShowSettingsMenu(false);
                     }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C3C] flex items-center border-b border-slate-100 dark:border-slate-700"
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center border-b border-primary-100 dark:border-primary-900/30"
                   >
                     <CheckCircle size={16} className="mr-3 text-emerald-500" />
                     Mark as {project.status === 'completed' ? 'Active' : 'Completed'}
@@ -84,7 +84,7 @@ export default function ProjectDetails() {
                     }
                     setShowSettingsMenu(false);
                   }}
-                  className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C3C] flex items-center"
+                  className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center"
                 >
                   <Archive size={16} className="mr-3" />
                   {project.isArchived ? 'Unarchive' : 'Archive'}
@@ -106,7 +106,7 @@ export default function ProjectDetails() {
         </div>
 
         {/* Scrollable Tabs */}
-        <div className="flex overflow-x-auto scrollbar-hide border-t border-slate-100 dark:border-slate-800">
+        <div className="flex overflow-x-auto scrollbar-hide border-t border-primary-100 dark:border-primary-900/30">
           {tabs.map((tab) => {
             const isActive = location.pathname.includes(`/project/${id}/${tab.id}`) || 
                              (tab.id === 'tasks' && location.pathname === `/project/${id}`);
@@ -146,7 +146,7 @@ export default function ProjectDetails() {
             <div className="flex space-x-3">
               <button 
                 onClick={() => setConfirmLeave(false)} 
-                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 rounded-xl"
+                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-primary-50 dark:bg-primary-900/20 rounded-xl"
               >
                 Cancel
               </button>

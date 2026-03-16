@@ -75,13 +75,13 @@ export default function PaymentsSubtab() {
             Who Owes Who
           </h3>
           {debts.length === 0 ? (
-            <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-6 text-center shadow-sm border border-slate-100 dark:border-slate-800">
-              <CheckCircle2 size={32} className="text-green-500 mx-auto mb-2" />
+            <div className="bg-primary-50/50 dark:bg-primary-900/10 rounded-2xl p-6 text-center shadow-sm border border-primary-100 dark:border-primary-900/30">
+              <CheckCircle2 size={32} className="text-primary-500 mx-auto mb-2" />
               <p className="font-bold text-slate-900 dark:text-slate-100">All settled up!</p>
-              <p className="text-sm text-slate-500">No outstanding balances.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">No outstanding balances.</p>
             </div>
           ) : (
-            <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 overflow-hidden divide-y divide-primary-100 dark:divide-primary-900/30">
               {debts.map((debt, idx) => {
                 const isMeOwe = debt.from === currentUser?.id;
                 const isMeOwed = debt.to === currentUser?.id;
@@ -97,7 +97,7 @@ export default function PaymentsSubtab() {
                       </div>
                       <ArrowRightLeft size={16} className="text-slate-300" />
                       <div className="flex flex-col items-center">
-                        <span className={`font-bold ${isMeOwed ? 'text-green-600 dark:text-green-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                        <span className={`font-bold ${isMeOwed ? 'text-primary-600 dark:text-primary-400' : 'text-slate-900 dark:text-slate-100'}`}>
                           {getUserName(debt.to)}
                         </span>
                       </div>
@@ -137,7 +137,7 @@ export default function PaymentsSubtab() {
           ) : (
             <div className="space-y-3">
               {projectExpenses.sort((a, b) => b.date - a.date).map(expense => (
-                <div key={expense.id} className="bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                <div key={expense.id} className="bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-bold text-slate-900 dark:text-slate-100">{expense.description}</h4>
                     <span className="font-bold text-slate-900 dark:text-slate-100">${expense.total.toFixed(2)}</span>

@@ -55,7 +55,7 @@ export default function MembersSubtab() {
         <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 px-2">
           Team Members ({projectMembers.length})
         </h3>
-        <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 overflow-hidden divide-y divide-primary-100 dark:divide-primary-900/30">
           {projectMembers.map((member) => {
             const isMe = currentUser?.id === member.userId;
             // In a real app, we'd fetch user details from a users table.
@@ -65,13 +65,13 @@ export default function MembersSubtab() {
             return (
               <div key={member.userId} className="p-4 flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mr-3">
-                    <User size={20} className="text-slate-400" />
+                  <div className="w-10 h-10 bg-primary-50 dark:bg-primary-900/20 rounded-full flex items-center justify-center mr-3">
+                    <User size={20} className="text-primary-400" />
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 dark:text-slate-100 flex items-center">
                       {displayName}
-                      {isMe && <span className="ml-2 text-[10px] uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded-full font-bold">You</span>}
+                      {isMe && <span className="ml-2 text-[10px] uppercase tracking-wider bg-primary-50 text-slate-600 dark:bg-primary-900/20 dark:text-slate-400 px-2 py-0.5 rounded-full font-bold">You</span>}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center mt-0.5">
                       {member.role === 'leader' ? (

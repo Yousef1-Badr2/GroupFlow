@@ -57,7 +57,7 @@ export default function Projects() {
           placeholder="Search projects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#1E1E1E] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
+          className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#1E1E1E] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
         />
       </div>
 
@@ -75,7 +75,7 @@ export default function Projects() {
               <div
                 key={project.id}
                 onClick={() => navigate(`/project/${project.id}`)}
-                className="block bg-white dark:bg-[#1E1E1E] p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow cursor-pointer relative"
+                className="block bg-white dark:bg-[#1E1E1E] p-5 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 hover:border-primary-300 dark:hover:border-primary-800 hover:shadow-md transition-all cursor-pointer relative"
               >
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-lg font-bold truncate pr-2">{project.title}</h3>
@@ -98,7 +98,7 @@ export default function Projects() {
                     </button>
                     
                     {activeMenu === project.id && (
-                      <div className="absolute top-12 right-4 bg-white dark:bg-[#2C2C2C] rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 py-1 z-20 min-w-[120px]">
+                      <div className="absolute top-12 right-4 bg-white dark:bg-[#2C2C2C] rounded-xl shadow-lg border border-primary-100 dark:border-primary-900/30 py-1 z-20 min-w-[120px]">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -109,7 +109,7 @@ export default function Projects() {
                             }
                             setActiveMenu(null);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C3C] flex items-center"
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center"
                         >
                           <Archive size={14} className="mr-2" />
                           {project.isArchived ? 'Unarchive' : 'Archive'}
@@ -122,7 +122,7 @@ export default function Projects() {
                               updateProjectStatus(project.id, project.status === 'completed' ? 'active' : 'completed');
                               setActiveMenu(null);
                             }}
-                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#3C3C3C] flex items-center"
+                            className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center"
                           >
                             <CheckCircle size={14} className="mr-2 text-emerald-500" />
                             {project.status === 'completed' ? 'Mark Active' : 'Mark Completed'}
@@ -166,14 +166,14 @@ export default function Projects() {
           <div className="flex flex-col items-end space-y-3 mb-4">
             <button
               onClick={() => { setShowJoinModal(true); setShowMenu(false); }}
-              className="bg-white dark:bg-[#2C2C2C] text-slate-700 dark:text-slate-200 p-3 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-[#3C3C3C] transition-colors"
+              className="bg-primary-50 dark:bg-primary-900/20 text-slate-700 dark:text-slate-200 p-3 rounded-full shadow-lg border border-primary-100 dark:border-primary-900/30 flex items-center justify-center hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
             >
               <span className="mr-2 font-medium px-2">Join Project</span>
               <Users size={20} />
             </button>
             <button
               onClick={() => { setShowCreateModal(true); setShowMenu(false); }}
-              className="bg-white dark:bg-[#2C2C2C] text-slate-700 dark:text-slate-200 p-3 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-[#3C3C3C] transition-colors"
+              className="bg-primary-50 dark:bg-primary-900/20 text-slate-700 dark:text-slate-200 p-3 rounded-full shadow-lg border border-primary-100 dark:border-primary-900/30 flex items-center justify-center hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
             >
               <span className="mr-2 font-medium px-2">Create Project</span>
               <Folder size={20} />
@@ -209,7 +209,7 @@ export default function Projects() {
             <div className="flex space-x-3">
               <button 
                 onClick={() => setConfirmLeave(null)} 
-                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 rounded-xl"
+                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-primary-50 dark:bg-primary-900/20 rounded-xl"
               >
                 Cancel
               </button>
@@ -255,11 +255,11 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
             placeholder="Project Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-primary-600"
+            className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-primary-600"
             autoFocus
           />
           <div className="flex justify-end space-x-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-medium">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-primary-600 dark:text-primary-400 font-medium">Cancel</button>
             <button type="submit" disabled={!title.trim()} className="px-4 py-2 bg-primary-700 text-white rounded-xl font-medium disabled:opacity-50">Create</button>
           </div>
         </form>
@@ -295,13 +295,13 @@ function JoinProjectModal({ onClose }: { onClose: () => void }) {
             placeholder="Enter 6-character code"
             value={code}
             onChange={(e) => { setCode(e.target.value); setError(""); }}
-            className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl mb-2 focus:outline-none focus:ring-2 focus:ring-primary-600 uppercase"
+            className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl mb-2 focus:outline-none focus:ring-2 focus:ring-primary-600 uppercase"
             maxLength={6}
             autoFocus
           />
           {error && <p className="text-rose-500 text-sm mb-4">{error}</p>}
           <div className="flex justify-end space-x-3 mt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-medium">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-primary-600 dark:text-primary-400 font-medium">Cancel</button>
             <button type="submit" disabled={!code.trim() || code.length < 6} className="px-4 py-2 bg-primary-700 text-white rounded-xl font-medium disabled:opacity-50">Join</button>
           </div>
         </form>

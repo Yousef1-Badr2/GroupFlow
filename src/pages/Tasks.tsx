@@ -42,7 +42,7 @@ export default function Tasks() {
         <h1 className="text-2xl font-bold">My Tasks</h1>
         <button
           onClick={() => setShowCompleted(!showCompleted)}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium ${showCompleted ? 'bg-primary-100 text-primary-700 dark:bg-primary-950/30 dark:text-primary-500' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium ${showCompleted ? 'bg-primary-100 text-primary-700 dark:bg-primary-950/30 dark:text-primary-500' : 'bg-primary-50 text-slate-600 dark:bg-primary-900/20 dark:text-slate-400'}`}
         >
           {showCompleted ? "Hide Completed" : "Show Completed"}
         </button>
@@ -55,7 +55,7 @@ export default function Tasks() {
           placeholder="Search tasks..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#1E1E1E] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
+          className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#1E1E1E] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
         />
       </div>
 
@@ -72,10 +72,10 @@ export default function Tasks() {
 
             return (
               <div key={projectId} className="space-y-3">
-                <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 bg-slate-50 dark:bg-[#121212] py-2 z-10">
+                <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 bg-primary-50/30 dark:bg-[#121212] py-2 z-10">
                   {project.title}
                 </h2>
-                <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 overflow-hidden">
                   {projectTasks.map((task, index) => {
                     const isOverdue = !task.completed && isPast(task.dueDate) && !isToday(task.dueDate);
                     const isAssignedToMe = task.assignedTo.includes(currentUser.id);
@@ -83,7 +83,7 @@ export default function Tasks() {
                     return (
                       <div 
                         key={task.id} 
-                        className={`p-4 flex items-start gap-3 ${index !== projectTasks.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''} ${task.completed ? 'opacity-60' : ''}`}
+                        className={`p-4 flex items-start gap-3 ${index !== projectTasks.length - 1 ? 'border-b border-primary-100 dark:border-primary-900/30' : ''} ${task.completed ? 'opacity-60' : ''}`}
                       >
                         <button 
                           onClick={() => toggleTask(task.id)}

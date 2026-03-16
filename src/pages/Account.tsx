@@ -64,13 +64,13 @@ export default function Account() {
 
       <div className="flex-1 overflow-y-auto pb-20 space-y-8">
         {/* Profile Section */}
-        <section className="bg-white dark:bg-[#1E1E1E] p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+        <section className="bg-white dark:bg-[#1E1E1E] p-6 rounded-3xl shadow-sm border border-primary-100 dark:border-primary-900/30">
           <div className="flex items-center justify-center mb-6">
-            <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center border-4 border-white dark:border-[#1E1E1E] shadow-md">
+            <div className="w-24 h-24 bg-primary-50 dark:bg-primary-900/20 rounded-full flex items-center justify-center border-4 border-white dark:border-[#1E1E1E] shadow-md">
               {name ? (
-                <span className="text-3xl font-bold text-slate-400">{name.charAt(0).toUpperCase()}</span>
+                <span className="text-3xl font-bold text-primary-400">{name.charAt(0).toUpperCase()}</span>
               ) : (
-                <User size={40} className="text-slate-300" />
+                <User size={40} className="text-primary-300" />
               )}
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function Account() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Jane Doe"
-                  className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+                  className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
               <div>
@@ -94,7 +94,7 @@ export default function Account() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="e.g. +1 234 567 8900"
-                  className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+                  className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
               <div>
@@ -104,7 +104,7 @@ export default function Account() {
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="A short bio about yourself..."
                   rows={3}
-                  className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 resize-none"
+                  className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 resize-none"
                 />
               </div>
               <button
@@ -132,28 +132,28 @@ export default function Account() {
             App Settings
           </h3>
           
-          <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 overflow-hidden divide-y divide-primary-100 dark:divide-primary-900/30">
             <div className="p-4 flex items-center justify-between">
               <div>
                 <p className="font-medium">Theme</p>
                 <p className="text-xs text-slate-500">Choose your preferred appearance</p>
               </div>
-              <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+              <div className="flex bg-primary-50/50 dark:bg-primary-900/20 rounded-lg p-1">
                 <button
                   onClick={() => setTheme('light')}
-                  className={`p-2 rounded-md transition-colors ${theme === 'light' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}
+                  className={`p-2 rounded-md transition-colors ${theme === 'light' ? 'bg-white dark:bg-primary-800 text-primary-700 dark:text-primary-400 shadow-sm' : 'text-slate-500 hover:text-primary-700 dark:hover:text-primary-400'}`}
                 >
                   <Sun size={18} />
                 </button>
                 <button
                   onClick={() => setTheme('dark')}
-                  className={`p-2 rounded-md transition-colors ${theme === 'dark' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}
+                  className={`p-2 rounded-md transition-colors ${theme === 'dark' ? 'bg-white dark:bg-primary-800 text-primary-700 dark:text-primary-400 shadow-sm' : 'text-slate-500 hover:text-primary-700 dark:hover:text-primary-400'}`}
                 >
                   <Moon size={18} />
                 </button>
                 <button
                   onClick={() => setTheme('system')}
-                  className={`p-2 rounded-md transition-colors ${theme === 'system' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}
+                  className={`p-2 rounded-md transition-colors ${theme === 'system' ? 'bg-white dark:bg-primary-800 text-primary-700 dark:text-primary-400 shadow-sm' : 'text-slate-500 hover:text-primary-700 dark:hover:text-primary-400'}`}
                 >
                   <Monitor size={18} />
                 </button>
@@ -165,22 +165,22 @@ export default function Account() {
                 <p className="font-medium">Color Theme</p>
                 <p className="text-xs text-slate-500">Choose your accent color</p>
               </div>
-              <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 space-x-1">
+              <div className="flex bg-primary-50/50 dark:bg-primary-900/20 rounded-lg p-1 space-x-1">
                 <button
                   onClick={() => setColorTheme('red')}
-                  className={`w-8 h-8 rounded-md transition-all flex items-center justify-center ${colorTheme === 'red' ? 'bg-white dark:bg-slate-700 shadow-sm scale-110' : 'hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
+                  className={`w-8 h-8 rounded-md transition-all flex items-center justify-center ${colorTheme === 'red' ? 'bg-white dark:bg-primary-800 shadow-sm scale-110' : 'hover:bg-primary-100 dark:hover:bg-primary-800/50'}`}
                 >
                   <div className="w-5 h-5 rounded-full bg-red-600"></div>
                 </button>
                 <button
                   onClick={() => setColorTheme('blue')}
-                  className={`w-8 h-8 rounded-md transition-all flex items-center justify-center ${colorTheme === 'blue' ? 'bg-white dark:bg-slate-700 shadow-sm scale-110' : 'hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
+                  className={`w-8 h-8 rounded-md transition-all flex items-center justify-center ${colorTheme === 'blue' ? 'bg-white dark:bg-primary-800 shadow-sm scale-110' : 'hover:bg-primary-100 dark:hover:bg-primary-800/50'}`}
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-600"></div>
                 </button>
                 <button
                   onClick={() => setColorTheme('green')}
-                  className={`w-8 h-8 rounded-md transition-all flex items-center justify-center ${colorTheme === 'green' ? 'bg-white dark:bg-slate-700 shadow-sm scale-110' : 'hover:bg-white/50 dark:hover:bg-slate-700/50'}`}
+                  className={`w-8 h-8 rounded-md transition-all flex items-center justify-center ${colorTheme === 'green' ? 'bg-white dark:bg-primary-800 shadow-sm scale-110' : 'hover:bg-primary-100 dark:hover:bg-primary-800/50'}`}
                 >
                   <div className="w-5 h-5 rounded-full bg-green-600"></div>
                 </button>
@@ -213,7 +213,7 @@ export default function Account() {
             <div className="flex space-x-3">
               <button 
                 onClick={() => setConfirmClear(false)} 
-                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-slate-100 dark:bg-slate-800 rounded-xl"
+                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-primary-50 dark:bg-primary-900/20 rounded-xl"
               >
                 Cancel
               </button>

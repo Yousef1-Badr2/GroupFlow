@@ -30,7 +30,7 @@ export default function ShoppingSubtab() {
                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-2">
                   To Buy ({pendingItems.length})
                 </h3>
-                <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 overflow-hidden divide-y divide-primary-100 dark:divide-primary-900/30">
                   {pendingItems.map((item) => (
                     <div key={item.id} className="p-4 flex items-center justify-between">
                       <div className="flex-1 min-w-0 pr-4">
@@ -60,13 +60,13 @@ export default function ShoppingSubtab() {
                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-2">
                   Purchased ({purchasedItems.length})
                 </h3>
-                <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 opacity-70">
+                <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 overflow-hidden divide-y divide-primary-100 dark:divide-primary-900/30 opacity-70">
                   {purchasedItems.map((item) => (
                     <div key={item.id} className="p-4 flex items-center justify-between">
                       <div className="flex-1 min-w-0 pr-4">
                         <p className="font-bold text-slate-900 dark:text-slate-100 truncate line-through">{item.name}</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center">
-                          <CheckCircle2 size={14} className="mr-1 text-green-500" />
+                          <CheckCircle2 size={14} className="mr-1 text-primary-500" />
                           Bought for ${item.actualCost?.toFixed(2)}
                         </p>
                       </div>
@@ -128,7 +128,7 @@ function AddItemModal({ projectId, onClose }: { projectId: string; onClose: () =
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
               autoFocus
             />
           </div>
@@ -140,12 +140,12 @@ function AddItemModal({ projectId, onClose }: { projectId: string; onClose: () =
               min="0"
               value={estimatedCost}
               onChange={(e) => setEstimatedCost(e.target.value)}
-              className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
             />
           </div>
           
           <div className="flex justify-end space-x-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-medium">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-primary-600 dark:text-primary-400 font-medium">Cancel</button>
             <button type="submit" disabled={!name.trim() || !estimatedCost} className="px-4 py-2 bg-primary-700 text-white rounded-xl font-medium disabled:opacity-50">Add</button>
           </div>
         </form>
@@ -185,7 +185,7 @@ function PurchaseItemModal({ itemId, projectId, onClose }: { itemId: string; pro
               min="0"
               value={actualCost}
               onChange={(e) => setActualCost(e.target.value)}
-              className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
               autoFocus
             />
           </div>
@@ -193,7 +193,7 @@ function PurchaseItemModal({ itemId, projectId, onClose }: { itemId: string; pro
             This will automatically create an expense split equally among all {projectMembers.length} members.
           </p>
           <div className="flex justify-end space-x-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-medium">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-primary-600 dark:text-primary-400 font-medium">Cancel</button>
             <button type="submit" disabled={!actualCost} className="px-4 py-2 bg-primary-700 text-white rounded-xl font-medium disabled:opacity-50">Confirm</button>
           </div>
         </form>

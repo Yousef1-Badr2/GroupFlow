@@ -39,8 +39,8 @@ export default function Notifications() {
             onClick={() => setFilter(type as any)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               filter === type 
-                ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' 
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+                ? 'bg-primary-700 text-white dark:bg-primary-500 dark:text-slate-900' 
+                : 'bg-primary-50 text-slate-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-slate-400 dark:hover:bg-primary-900/40'
             }`}
           >
             {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -64,12 +64,12 @@ export default function Notifications() {
                 onClick={() => !notification.read && markNotificationRead(notification.id)}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                   notification.read 
-                    ? 'bg-white dark:bg-[#1E1E1E] border-slate-100 dark:border-slate-800 opacity-70' 
+                    ? 'bg-white dark:bg-[#1E1E1E] border-primary-100 dark:border-primary-900/30 opacity-70' 
                     : 'bg-primary-50 dark:bg-primary-950/10 border-primary-100 dark:border-primary-950/30 shadow-sm'
                 }`}
               >
                 <div className="flex gap-4">
-                  <div className={`mt-1 p-2 rounded-full ${notification.read ? 'bg-slate-100 dark:bg-slate-800' : 'bg-white dark:bg-slate-800 shadow-sm'}`}>
+                  <div className={`mt-1 p-2 rounded-full ${notification.read ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-primary-800 shadow-sm'}`}>
                     {getIcon(notification.type)}
                   </div>
                   <div className="flex-1 min-w-0">

@@ -40,7 +40,7 @@ export default function TasksSubtab() {
             return (
               <div 
                 key={task.id} 
-                className={`bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-start gap-3 transition-opacity ${task.completed ? 'opacity-60' : ''}`}
+                className={`bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 flex items-start gap-3 transition-opacity ${task.completed ? 'opacity-60' : ''}`}
               >
                 <button 
                   onClick={() => !project.isArchived && toggleTask(task.id)}
@@ -148,7 +148,7 @@ function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { 
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
               autoFocus
             />
           </div>
@@ -158,14 +158,14 @@ function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { 
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full p-3 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
             />
           </div>
 
           {userRole === 'leader' && (
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assign To</label>
-              <div className="space-y-2 max-h-32 overflow-y-auto bg-slate-50 dark:bg-[#121212] p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="space-y-2 max-h-32 overflow-y-auto bg-primary-50/50 dark:bg-[#121212] p-3 rounded-xl border border-primary-100 dark:border-primary-900/30">
                 {members.map(m => {
                   const isMe = m.userId === currentUser?.id;
                   const displayName = isMe ? "Me" : `User ${m.userId.substring(0, 4)}`;
@@ -189,7 +189,7 @@ function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { 
           )}
           
           <div className="flex justify-end space-x-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 font-medium">Cancel</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-primary-600 dark:text-primary-400 font-medium">Cancel</button>
             <button type="submit" disabled={!description.trim() || !dueDate} className="px-4 py-2 bg-primary-700 text-white rounded-xl font-medium disabled:opacity-50">Add</button>
           </div>
         </form>

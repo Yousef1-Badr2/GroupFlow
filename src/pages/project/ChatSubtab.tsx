@@ -40,7 +40,7 @@ export default function ChatSubtab() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-[#121212]">
+    <div className="h-full flex flex-col bg-primary-50/30 dark:bg-[#121212]">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
         {projectMessages.length === 0 ? (
           <div className="text-center py-10 text-slate-500">
@@ -62,7 +62,7 @@ export default function ChatSubtab() {
                   className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm ${
                     isMe 
                       ? 'bg-primary-700 text-white rounded-tr-none' 
-                      : 'bg-white dark:bg-[#1E1E1E] border border-slate-100 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-none'
+                      : 'bg-white dark:bg-[#1E1E1E] border border-primary-100 dark:border-primary-900/30 text-slate-900 dark:text-slate-100 rounded-tl-none'
                   }`}
                 >
                   <p className="text-sm">{msg.text}</p>
@@ -78,7 +78,7 @@ export default function ChatSubtab() {
       </div>
 
       {!project.isArchived && (
-        <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t border-slate-200 dark:border-slate-800 p-3 pb-safe">
+        <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t border-primary-100 dark:border-primary-900/30 p-3 pb-safe">
           <form onSubmit={handleSend} className="flex items-center gap-2">
             <button 
               type="button"
@@ -91,7 +91,7 @@ export default function ChatSubtab() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 bg-slate-100 dark:bg-[#121212] border-none rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-600 text-sm"
+              className="flex-1 bg-primary-50/50 dark:bg-[#121212] border-none rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-600 text-sm"
             />
             <button 
               type="submit"
