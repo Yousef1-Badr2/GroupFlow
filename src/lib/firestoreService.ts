@@ -327,6 +327,52 @@ export const votePoll = async (projectId: string, pollId: string, userId: string
 
 export const closePoll = async (projectId: string, pollId: string) => {
   await updateDoc(doc(db, `projects/${projectId}/polls`, pollId), { closed: true });
+
+  // Get poll data and votes to announce results
+  const pollDoc = await getDoc(doc(db, `projects/${projectId}/polls`, pollId));
+  if (!pollDoc.exists()) return;
+  
+  const poll = pollDoc.data() as Poll;
+  const votesSnap = await getDocs(query(collection(db, `projects/${projectId}/votes`), where('pollId', '==', pollId)));
+  const pollVotes = votesSnap.docs.map(d => d.data() as Vote);
+  
+  // Calculate results
+  const counts: Record<number, number> = {};
+  poll.options.forEach((_, i) => counts[i] = 0);
+  pollVotes.forEach(v => {
+    counts[v.optionIndex] = (counts[v.optionIndex] || 0) + 1;
+  });
+
+  let maxVotes = -1;
+  let winners: string[] = [];
+  
+  Object.entries(counts).forEach(([index, count]) => {
+    if (count > maxVotes) {
+      maxVotes = count;
+      winners = [poll.options[parseInt(index)]];
+    } else if (count === maxVotes && maxVotes > 0) {
+      winners.push(poll.options[parseInt(index)]);
+    }
+  });
+
+  const resultText = maxVotes <= 0 
+    ? "No votes were cast." 
+    : `Winner: ${winners.join(", ")} (${maxVotes} votes)`;
+
+  const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
+  const projectDoc = await getDoc(doc(db, 'projects', projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+
+  const notificationPromises = membersSnap.docs.map(memberDoc => 
+    addNotification(memberDoc.id, {
+      title: 'Poll Results',
+      description: `The poll "${poll.question}" in "${projectTitle}" has ended. ${resultText}`,
+      type: 'poll',
+      projectId
+    })
+  );
+
+  await Promise.all(notificationPromises);
 };
 
 // Chat Services
