@@ -87,6 +87,7 @@ export default function App() {
                 <Route path="payments" element={<PaymentsSubtab />} />
               </Route>
               <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/invite" element={<Navigate to="/" replace />} />
             </>
           )}
         </Routes>

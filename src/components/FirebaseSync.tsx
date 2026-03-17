@@ -18,53 +18,72 @@ export default function FirebaseSync() {
   } = useStore();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        let userData: User;
-        const isAdmin = user.email === 'yousef1mahmoud2@gmail.com';
-        
-        if (userSnap.exists()) {
-          userData = userSnap.data() as User;
-          // Update potentially changed auth fields
-          userData.name = user.displayName || userData.name || 'User';
-          userData.email = user.email || userData.email || '';
-          userData.photoURL = user.photoURL || userData.photoURL || '';
+    let unsubscribeUser: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          const userRef = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
           
-          // Ensure admin is always approved
-          if (isAdmin) {
-            userData.isApproved = true;
-            userData.role = 'admin';
+          let userData: User;
+          const isAdmin = user.email === 'yousef1mahmoud2@gmail.com';
+          
+          if (userSnap.exists()) {
+            userData = userSnap.data() as User;
+            userData.name = user.displayName || userData.name || 'User';
+            userData.email = user.email || userData.email || '';
+            userData.photoURL = user.photoURL || userData.photoURL || '';
+            
+            if (isAdmin) {
+              userData.isApproved = true;
+              userData.role = 'admin';
+            }
+          } else {
+            userData = {
+              id: user.uid,
+              name: user.displayName || 'User',
+              phone: user.phoneNumber || '',
+              bio: '',
+              email: user.email || '',
+              photoURL: user.photoURL || '',
+              isApproved: isAdmin,
+              role: isAdmin ? 'admin' : 'user'
+            };
           }
+          
+          setCurrentUser(userData);
+          await firestoreService.syncUser(userData);
+
+          // Set up real-time listener for the user document
+          if (unsubscribeUser) unsubscribeUser();
+          unsubscribeUser = onSnapshot(userRef, (snapshot) => {
+            if (snapshot.exists()) {
+              setCurrentUser(snapshot.data() as User);
+            }
+          });
         } else {
-          userData = {
-            id: user.uid,
-            name: user.displayName || 'User',
-            phone: user.phoneNumber || '',
-            bio: '',
-            email: user.email || '',
-            photoURL: user.photoURL || '',
-            isApproved: isAdmin,
-            role: isAdmin ? 'admin' : 'user'
-          };
+          setCurrentUser(null);
+          if (unsubscribeUser) {
+            unsubscribeUser();
+            unsubscribeUser = null;
+          }
         }
-        
-        setCurrentUser(userData);
-        // Sync to Firestore
-        await firestoreService.syncUser(userData);
-      } else {
-        setCurrentUser(null);
+      } catch (error) {
+        console.error("Auth sync error:", error);
+      } finally {
+        setAuthReady(true);
       }
-      setAuthReady(true);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUser) unsubscribeUser();
+    };
   }, [setCurrentUser, setAuthReady]);
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || !currentUser.isApproved) {
       setProjects([]);
       setMembers([]);
       setTasks([]);
