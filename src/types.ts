@@ -43,6 +43,8 @@ export interface ShoppingItem {
   purchased: boolean;
   purchasedBy?: string;
   actualCost?: number;
+  requestedImageUrl?: string;
+  proofImageUrl?: string;
 }
 
 export interface Poll {
@@ -70,6 +72,7 @@ export interface Message {
   text: string;
   timestamp: number;
   attachment?: string;
+  imageUrl?: string;
 }
 
 export interface Expense {

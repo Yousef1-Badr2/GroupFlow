@@ -37,11 +37,11 @@ export default function Notifications() {
   };
 
   const filterTypes = [
-    { id: 'all', label: 'All', icon: <Bell size={18} /> },
-    { id: 'task', label: 'Tasks', icon: <ListTodo size={18} /> },
-    { id: 'message', label: 'Messages', icon: <MessageSquare size={18} /> },
-    { id: 'poll', label: 'Polls', icon: <CheckCircle2 size={18} /> },
-    { id: 'payment', label: 'Payments', icon: <CreditCard size={18} /> },
+    { id: 'all', label: 'All', icon: <Bell size={20} /> },
+    { id: 'task', label: 'Tasks', icon: <ListTodo size={20} /> },
+    { id: 'message', label: 'Messages', icon: <MessageSquare size={20} /> },
+    { id: 'poll', label: 'Polls', icon: <CheckCircle2 size={20} /> },
+    { id: 'payment', label: 'Payments', icon: <CreditCard size={20} /> },
   ];
 
   return (
@@ -55,16 +55,18 @@ export default function Notifications() {
           <button
             key={type.id}
             onClick={() => setFilter(type.id as any)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center justify-center gap-2 ${
               filter === type.id 
-                ? 'bg-primary-700 text-white dark:bg-primary-500 dark:text-slate-900' 
-                : 'bg-primary-50 text-slate-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-slate-400 dark:hover:bg-primary-900/40'
+                ? 'bg-primary-700 text-white dark:bg-primary-500 dark:text-slate-900 flex-shrink-0' 
+                : 'bg-primary-50 text-slate-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-slate-400 dark:hover:bg-primary-900/40 w-11 h-11 p-0 rounded-full flex-shrink-0'
             }`}
           >
             {type.icon}
-            <span className={filter === type.id ? 'block' : 'hidden sm:block'}>
-              {type.label}
-            </span>
+            {filter === type.id && (
+              <span className="animate-in fade-in slide-in-from-left-2">
+                {type.label}
+              </span>
+            )}
           </button>
         ))}
       </div>

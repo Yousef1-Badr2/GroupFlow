@@ -140,10 +140,12 @@ export default function ProjectDetails() {
                     : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 flex-shrink'
                 }`}
               >
-                <span className={`${isActive ? 'mr-2' : 'mx-auto sm:mr-2'}`}>{tab.icon}</span>
-                <span className={`text-sm transition-all duration-300 ${isActive ? 'inline' : 'hidden sm:inline'}`}>
-                  {tab.label}
-                </span>
+                <span className={`${isActive ? 'mr-2' : 'mx-auto'}`}>{tab.icon}</span>
+                {isActive && (
+                  <span className="text-sm transition-all duration-300 animate-in fade-in slide-in-from-left-2">
+                    {tab.label}
+                  </span>
+                )}
               </Link>
             );
           })}

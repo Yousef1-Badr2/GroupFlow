@@ -20,6 +20,7 @@ interface AppState {
   expenses: Expense[];
   settlements: Settlement[];
   notifications: Notification[];
+  users: User[];
   isAuthReady: boolean;
 
   // Actions
@@ -41,6 +42,7 @@ interface AppState {
   setExpenses: (expenses: Expense[]) => void;
   setSettlements: (settlements: Settlement[]) => void;
   setNotifications: (notifications: Notification[]) => void;
+  setUsers: (users: User[]) => void;
 }
 
 const generateJoinCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -61,6 +63,7 @@ export const useStore = create<AppState>()(
       expenses: [],
       settlements: [],
       notifications: [],
+      users: [],
       isAuthReady: false,
 
       setCurrentUser: (user) => set({ currentUser: user }),
@@ -81,7 +84,8 @@ export const useStore = create<AppState>()(
         messages: [],
         expenses: [],
         settlements: [],
-        notifications: []
+        notifications: [],
+        users: []
       }),
 
       setProjects: (projects) => set({ projects }),
@@ -94,6 +98,7 @@ export const useStore = create<AppState>()(
       setExpenses: (expenses) => set({ expenses }),
       setSettlements: (settlements) => set({ settlements }),
       setNotifications: (notifications) => set({ notifications }),
+      setUsers: (users) => set({ users }),
     }),
     {
       name: 'groupflow-settings',

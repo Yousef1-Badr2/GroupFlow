@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { 
   Project, ProjectMember, Task, ShoppingItem, 
   Poll, Vote, Message, Expense, Settlement, Notification, User 
@@ -24,6 +24,49 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Helper to generate join code
 const generateJoinCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
+// Storage Services (Using Base64 for reliability in this environment)
+export const uploadImage = async (file: File, path: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(dataUrl);
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
 
 // User Services
 export const syncUser = async (user: User) => {
@@ -76,6 +119,25 @@ export const joinProject = async (userId: string, joinCode: string) => {
   };
   
   await setDoc(doc(db, `projects/${projectId}/members`, userId), member);
+
+  // Notify existing members
+  const membersRef = collection(db, `projects/${projectId}/members`);
+  const membersSnap = await getDocs(membersRef);
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  const userName = userDoc.exists() ? (userDoc.data() as User).name : 'A new member';
+  const projectTitle = projectDoc.data().title;
+
+  const notificationPromises = membersSnap.docs
+    .filter(doc => doc.id !== userId)
+    .map(memberDoc => addNotification(memberDoc.id, {
+      title: 'New Member Joined',
+      description: `${userName} has joined the project "${projectTitle}"`,
+      type: 'system',
+      projectId
+    }));
+  
+  await Promise.all(notificationPromises);
+
   return projectId;
 };
 
@@ -134,14 +196,19 @@ export const addShoppingItem = async (item: Omit<ShoppingItem, 'id' | 'purchased
   await setDoc(doc(db, `projects/${item.projectId}/shoppingItems`, id), { ...item, id, purchased: false });
 };
 
-export const purchaseItem = async (itemId: string, projectId: string, actualCost: number, purchaserId: string, splits: { userId: string; amount: number }[]) => {
+export const purchaseItem = async (itemId: string, projectId: string, actualCost: number, purchaserId: string, splits: { userId: string; amount: number }[], proofImageUrl?: string) => {
   const batch = writeBatch(db);
   
-  batch.update(doc(db, `projects/${projectId}/shoppingItems`, itemId), {
+  const updateData: any = {
     purchased: true,
     purchasedBy: purchaserId,
     actualCost
-  });
+  };
+  if (proofImageUrl) {
+    updateData.proofImageUrl = proofImageUrl;
+  }
+  
+  batch.update(doc(db, `projects/${projectId}/shoppingItems`, itemId), updateData);
 
   const expenseId = uuidv4();
   const expense: Expense = {
@@ -210,3 +277,55 @@ export const addNotification = async (userId: string, notification: Omit<Notific
   const id = uuidv4();
   await setDoc(doc(db, `users/${userId}/notifications`, id), { ...notification, id, read: false, timestamp: Date.now(), userId });
 };
+
+// Error Handling for Firestore Permissions
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}

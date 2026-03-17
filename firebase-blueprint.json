@@ -91,12 +91,11 @@
       "description": "A vote cast in a poll",
       "type": "object",
       "properties": {
-        "projectId": { "type": "string" },
         "pollId": { "type": "string" },
         "userId": { "type": "string" },
         "optionIndex": { "type": "number" }
       },
-      "required": ["projectId", "pollId", "userId", "optionIndex"]
+      "required": ["pollId", "userId", "optionIndex"]
     },
     "Message": {
       "title": "Message",
