@@ -177,6 +177,20 @@ export const leaveProject = async (projectId: string, userId: string, isLeader: 
 export const addTask = async (task: Omit<Task, 'id' | 'completed'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${task.projectId}/tasks`, id), { ...task, id, completed: false });
+
+  const membersSnap = await getDocs(collection(db, `projects/${task.projectId}/members`));
+  const projectDoc = await getDoc(doc(db, 'projects', task.projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+  
+  const notificationPromises = membersSnap.docs
+    .filter(doc => doc.id !== auth.currentUser?.uid)
+    .map(memberDoc => addNotification(memberDoc.id, {
+      title: 'New Task',
+      description: `A new task "${task.title}" was added in "${projectTitle}"`,
+      type: 'task',
+      projectId: task.projectId
+    }));
+  await Promise.all(notificationPromises);
 };
 
 export const toggleTask = async (projectId: string, taskId: string, completed: boolean, userId: string) => {
@@ -223,12 +237,42 @@ export const purchaseItem = async (itemId: string, projectId: string, actualCost
   batch.set(doc(db, `projects/${projectId}/expenses`, expenseId), expense);
 
   await batch.commit();
+
+  const userDoc = await getDoc(doc(db, 'users', purchaserId));
+  const purchaserName = userDoc.exists() ? (userDoc.data() as User).name : 'Someone';
+  const projectDoc = await getDoc(doc(db, 'projects', projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+
+  const notificationPromises = splits
+    .filter(split => split.userId !== purchaserId)
+    .map(split => addNotification(split.userId, {
+      title: 'New Expense',
+      description: `${purchaserName} purchased an item in "${projectTitle}". You owe $${split.amount.toFixed(2)}.`,
+      type: 'payment',
+      projectId
+    }));
+
+  await Promise.all(notificationPromises);
 };
 
 // Poll Services
 export const createPoll = async (poll: Omit<Poll, 'id' | 'closed'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${poll.projectId}/polls`, id), { ...poll, id, closed: false, createdAt: Date.now() });
+
+  const membersSnap = await getDocs(collection(db, `projects/${poll.projectId}/members`));
+  const projectDoc = await getDoc(doc(db, 'projects', poll.projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+  
+  const notificationPromises = membersSnap.docs
+    .filter(doc => doc.id !== auth.currentUser?.uid)
+    .map(memberDoc => addNotification(memberDoc.id, {
+      title: 'New Poll',
+      description: `A new poll "${poll.question}" was created in "${projectTitle}"`,
+      type: 'poll',
+      projectId: poll.projectId
+    }));
+  await Promise.all(notificationPromises);
 };
 
 export const votePoll = async (projectId: string, pollId: string, userId: string, optionIndex: number, allowMultiple: boolean) => {
@@ -255,17 +299,61 @@ export const closePoll = async (projectId: string, pollId: string) => {
 export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${message.projectId}/messages`, id), { ...message, id, timestamp: Date.now() });
+
+  const membersSnap = await getDocs(collection(db, `projects/${message.projectId}/members`));
+  const projectDoc = await getDoc(doc(db, 'projects', message.projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+  const userDoc = await getDoc(doc(db, 'users', message.userId));
+  const userName = userDoc.exists() ? (userDoc.data() as User).name : 'Someone';
+
+  const notificationPromises = membersSnap.docs
+    .filter(doc => doc.id !== message.userId)
+    .map(memberDoc => addNotification(memberDoc.id, {
+      title: 'New Message',
+      description: `${userName} sent a message in "${projectTitle}"`,
+      type: 'message',
+      projectId: message.projectId
+    }));
+  await Promise.all(notificationPromises);
 };
 
 // Expense Services
 export const addExpense = async (expense: Omit<Expense, 'id'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${expense.projectId}/expenses`, id), { ...expense, id, date: Date.now() });
+
+  const userDoc = await getDoc(doc(db, 'users', expense.purchaserId));
+  const purchaserName = userDoc.exists() ? (userDoc.data() as User).name : 'Someone';
+  const projectDoc = await getDoc(doc(db, 'projects', expense.projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+
+  const notificationPromises = expense.splits
+    .filter(split => split.userId !== expense.purchaserId)
+    .map(split => addNotification(split.userId, {
+      title: 'New Expense',
+      description: `${purchaserName} added an expense "${expense.description}" in "${projectTitle}". You owe $${split.amount.toFixed(2)}.`,
+      type: 'payment',
+      projectId: expense.projectId
+    }));
+  
+  await Promise.all(notificationPromises);
 };
 
 export const settleDebt = async (settlement: Omit<Settlement, 'id' | 'settled' | 'date'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${settlement.projectId}/settlements`, id), { ...settlement, id, settled: true, date: Date.now() });
+
+  const userDoc = await getDoc(doc(db, 'users', settlement.fromUserId));
+  const payerName = userDoc.exists() ? (userDoc.data() as User).name : 'Someone';
+  const projectDoc = await getDoc(doc(db, 'projects', settlement.projectId));
+  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+
+  await addNotification(settlement.toUserId, {
+    title: 'Debt Settled',
+    description: `${payerName} settled $${settlement.amount.toFixed(2)} with you in "${projectTitle}".`,
+    type: 'payment',
+    projectId: settlement.projectId
+  });
 };
 
 // Notification Services
