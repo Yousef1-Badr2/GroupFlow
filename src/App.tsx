@@ -18,6 +18,8 @@ import PollsSubtab from './pages/project/PollsSubtab';
 import ChatSubtab from './pages/project/ChatSubtab';
 import PaymentsSubtab from './pages/project/PaymentsSubtab';
 
+import InviteCodeScreen from './pages/InviteCodeScreen';
+
 export default function App() {
   const { theme, colorTheme, currentUser, isAuthReady } = useStore();
 
@@ -60,6 +62,11 @@ export default function App() {
             <>
               <Route path="/login" element={<Login />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
+            </>
+          ) : !currentUser.isApproved ? (
+            <>
+              <Route path="/invite" element={<InviteCodeScreen />} />
+              <Route path="*" element={<Navigate to="/invite" replace />} />
             </>
           ) : (
             <>

@@ -73,6 +73,36 @@ export const syncUser = async (user: User) => {
   await setDoc(doc(db, 'users', user.id), user, { merge: true });
 };
 
+export const generateInviteCode = async (adminId: string) => {
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const id = uuidv4();
+  await setDoc(doc(db, 'inviteCodes', id), {
+    id,
+    code,
+    used: false,
+    createdBy: adminId,
+    createdAt: Date.now()
+  });
+  return code;
+};
+
+export const validateAndUseInviteCode = async (userId: string, code: string) => {
+  const q = query(collection(db, 'inviteCodes'), where('code', '==', code.toUpperCase()), where('used', '==', false));
+  const snapshot = await getDocs(q);
+  
+  if (snapshot.empty) {
+    throw new Error('Invalid or already used invite code.');
+  }
+  
+  const codeDoc = snapshot.docs[0];
+  const batch = writeBatch(db);
+  
+  batch.update(doc(db, 'inviteCodes', codeDoc.id), { used: true, usedBy: userId });
+  batch.update(doc(db, 'users', userId), { isApproved: true });
+  
+  await batch.commit();
+};
+
 // Project Services
 export const createProject = async (userId: string, title: string) => {
   const projectId = uuidv4();

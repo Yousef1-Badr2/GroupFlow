@@ -7,6 +7,17 @@ export interface User {
   photoURL?: string;
   phone?: string;
   bio?: string;
+  isApproved?: boolean;
+  role?: 'admin' | 'user';
+}
+
+export interface InviteCode {
+  id: string;
+  code: string;
+  used: boolean;
+  usedBy?: string;
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface Project {

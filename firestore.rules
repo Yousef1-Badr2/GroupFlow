@@ -51,7 +51,9 @@ service cloud.firestore {
              data.id is string && data.id.size() > 0 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              (!('email' in data) || data.email is string) &&
-             (!('photoURL' in data) || data.photoURL is string);
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('isApproved' in data) || data.isApproved is bool) &&
+             (!('role' in data) || data.role in ['admin', 'user']);
     }
 
     function isValidProject(data) {
@@ -70,9 +72,21 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
+    match /inviteCodes/{codeId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if (isAuthenticated() && 
+                    resource.data.used == false && 
+                    request.resource.data.used == true &&
+                    request.resource.data.usedBy == request.auth.uid) || isAdmin();
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create, update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
+                    (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
+                    (!('role' in request.resource.data) || request.resource.data.role == resource.data.role || isAdmin());
     }
 
     match /projects/{projectId} {

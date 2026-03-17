@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, onSnapshot, collectionGroup, documentId } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, collectionGroup, documentId, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useStore } from '../store';
 import * as firestoreService from '../lib/firestoreService';
@@ -20,14 +20,37 @@ export default function FirebaseSync() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userData: User = {
-          id: user.uid,
-          name: user.displayName || 'User',
-          phone: user.phoneNumber || '',
-          bio: '',
-          email: user.email || '',
-          photoURL: user.photoURL || ''
-        };
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        let userData: User;
+        const isAdmin = user.email === 'yousef1mahmoud2@gmail.com';
+        
+        if (userSnap.exists()) {
+          userData = userSnap.data() as User;
+          // Update potentially changed auth fields
+          userData.name = user.displayName || userData.name || 'User';
+          userData.email = user.email || userData.email || '';
+          userData.photoURL = user.photoURL || userData.photoURL || '';
+          
+          // Ensure admin is always approved
+          if (isAdmin) {
+            userData.isApproved = true;
+            userData.role = 'admin';
+          }
+        } else {
+          userData = {
+            id: user.uid,
+            name: user.displayName || 'User',
+            phone: user.phoneNumber || '',
+            bio: '',
+            email: user.email || '',
+            photoURL: user.photoURL || '',
+            isApproved: isAdmin,
+            role: isAdmin ? 'admin' : 'user'
+          };
+        }
+        
         setCurrentUser(userData);
         // Sync to Firestore
         await firestoreService.syncUser(userData);

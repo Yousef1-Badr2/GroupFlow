@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { User, Settings, Moon, Sun, Monitor, LogOut, Save } from "lucide-react";
+import { User, Settings, Moon, Sun, Monitor, LogOut, Save, KeyRound, Loader2, Copy, Check } from "lucide-react";
 import { useStore } from "../store";
 import { auth } from "../lib/firebase";
 import { signOut } from "firebase/auth";
+import { generateInviteCode } from "../lib/firestoreService";
 
 export default function Account() {
   const { currentUser, theme, setTheme, colorTheme, setColorTheme } = useStore();
@@ -10,6 +11,11 @@ export default function Account() {
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Admin state
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -28,6 +34,28 @@ export default function Account() {
       await signOut(auth);
     } catch (error) {
       console.error("Failed to sign out:", error);
+    }
+  };
+
+  const handleGenerateCode = async () => {
+    if (!currentUser) return;
+    setIsGeneratingCode(true);
+    setCopied(false);
+    try {
+      const code = await generateInviteCode(currentUser.id);
+      setGeneratedCode(code);
+    } catch (error) {
+      console.error("Failed to generate code:", error);
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (generatedCode) {
+      navigator.clipboard.writeText(generatedCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -88,6 +116,55 @@ export default function Account() {
             </div>
           )}
         </section>
+
+        {/* Admin Section */}
+        {currentUser?.role === 'admin' && (
+          <section className="space-y-4">
+            <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 flex items-center">
+              <KeyRound size={16} className="mr-2" />
+              Admin Controls
+            </h3>
+            
+            <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 p-6">
+              <div className="mb-4">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100">Invite Codes</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Generate one-time codes to allow friends to join the app.
+                </p>
+              </div>
+
+              {generatedCode && (
+                <div className="mb-6 p-4 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl flex items-center justify-between">
+                  <span className="font-mono text-xl font-bold tracking-widest text-primary-700 dark:text-primary-400">
+                    {generatedCode}
+                  </span>
+                  <button
+                    onClick={copyToClipboard}
+                    className="p-2 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
+                    title="Copy to clipboard"
+                  >
+                    {copied ? <Check size={20} /> : <Copy size={20} />}
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={handleGenerateCode}
+                disabled={isGeneratingCode}
+                className="w-full py-3 bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded-xl font-bold flex items-center justify-center hover:bg-primary-200 dark:hover:bg-primary-800/50 transition-colors disabled:opacity-50"
+              >
+                {isGeneratingCode ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <KeyRound size={18} className="mr-2" />
+                    Generate New Code
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Settings Section */}
         <section className="space-y-4">
