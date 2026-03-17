@@ -1,6 +1,6 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { DollarSign, ArrowRightLeft, CheckCircle2, X } from "lucide-react";
+import { DollarSign, ArrowRightLeft, CheckCircle2, X, Trash2 } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
 import { format } from "date-fns";
@@ -91,6 +91,32 @@ export default function PaymentsSubtab() {
     }
   };
 
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (window.confirm("Are you sure you want to delete this expense?")) {
+      try {
+        await firestoreService.deleteExpense(project.id, expenseId);
+      } catch (error) {
+        console.error("Failed to delete expense:", error);
+      }
+    }
+  };
+
+  const handleDeleteSettlement = async (settlementId: string) => {
+    if (window.confirm("Are you sure you want to delete this settlement?")) {
+      try {
+        await firestoreService.deleteSettlement(project.id, settlementId);
+      } catch (error) {
+        console.error("Failed to delete settlement:", error);
+      }
+    }
+  };
+
+  // Combine expenses and settlements for the activity log
+  const activityLog = [
+    ...projectExpenses.map(e => ({ ...e, type: 'expense' as const })),
+    ...projectSettlements.map(s => ({ ...s, type: 'settlement' as const }))
+  ].sort((a, b) => b.date - a.date);
+
   return (
     <div className="h-full flex flex-col p-4 relative">
       <div className="flex-1 overflow-y-auto space-y-6 pb-20">
@@ -151,27 +177,71 @@ export default function PaymentsSubtab() {
           )}
         </div>
 
-        {/* Expenses Log */}
+        {/* Activity Log */}
         <div>
           <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 px-2">
-            Expense Log
+            Activity Log
           </h3>
-          {projectExpenses.length === 0 ? (
-            <p className="text-slate-500 text-center py-4">No expenses recorded yet.</p>
+          {activityLog.length === 0 ? (
+            <p className="text-slate-500 text-center py-4">No payments activity yet.</p>
           ) : (
             <div className="space-y-3">
-              {projectExpenses.sort((a, b) => b.date - a.date).map(expense => (
-                <div key={expense.id} className="bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-slate-900 dark:text-slate-100">{expense.description}</h4>
-                    <span className="font-bold text-slate-900 dark:text-slate-100">${expense.total.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400">
-                    <span>Paid by {getUserName(expense.purchaserId)}</span>
-                    <span>{format(expense.date, 'MMM d, yyyy')}</span>
-                  </div>
-                </div>
-              ))}
+              {activityLog.map(item => {
+                if (item.type === 'expense') {
+                  const expense = item as typeof projectExpenses[0];
+                  return (
+                    <div key={expense.id} className="bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100">{expense.description}</h4>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">${expense.total.toFixed(2)}</span>
+                          {!project.isArchived && userRole === 'leader' && (
+                            <button
+                              onClick={() => handleDeleteExpense(expense.id)}
+                              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-full transition-colors"
+                              title="Delete Expense"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400">
+                        <span>Paid by {getUserName(expense.purchaserId)}</span>
+                        <span>{format(expense.date, 'MMM d, yyyy')}</span>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  const settlement = item as typeof projectSettlements[0];
+                  return (
+                    <div key={settlement.id} className="bg-primary-50 dark:bg-primary-900/10 p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 size={18} className="text-primary-500" />
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100">Settlement</h4>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-primary-600 dark:text-primary-400">${settlement.amount.toFixed(2)}</span>
+                          {!project.isArchived && userRole === 'leader' && (
+                            <button
+                              onClick={() => handleDeleteSettlement(settlement.id)}
+                              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-full transition-colors"
+                              title="Delete Settlement"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center text-sm text-slate-500 dark:text-slate-400">
+                        <span>{getUserName(settlement.fromUserId)} paid {getUserName(settlement.toUserId)}</span>
+                        <span>{format(settlement.date, 'MMM d, yyyy')}</span>
+                      </div>
+                    </div>
+                  );
+                }
+              })}
             </div>
           )}
         </div>
@@ -196,7 +266,7 @@ export default function PaymentsSubtab() {
               <div className="text-center mb-6">
                 <p className="text-slate-600 dark:text-slate-300 mb-2">
                   <span className="font-bold text-slate-900 dark:text-slate-100">{getUserName(settleDialog.from)}</span>
-                  {" paid "}
+                  {" pays "}
                   <span className="font-bold text-slate-900 dark:text-slate-100">{getUserName(settleDialog.to)}</span>
                 </p>
               </div>

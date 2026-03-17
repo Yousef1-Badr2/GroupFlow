@@ -156,7 +156,8 @@ service cloud.firestore {
     }
 
     match /users/{userId}/notifications/{notificationId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read, update, delete: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated();
     }
   }
 }

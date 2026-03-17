@@ -128,7 +128,6 @@ export const joinProject = async (userId: string, joinCode: string) => {
   const projectTitle = projectDoc.data().title;
 
   const notificationPromises = membersSnap.docs
-    .filter(doc => doc.id !== userId)
     .map(memberDoc => addNotification(memberDoc.id, {
       title: 'New Member Joined',
       description: `${userName} has joined the project "${projectTitle}"`,
@@ -183,10 +182,9 @@ export const addTask = async (task: Omit<Task, 'id' | 'completed'>) => {
   const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
   
   const notificationPromises = membersSnap.docs
-    .filter(doc => doc.id !== auth.currentUser?.uid)
     .map(memberDoc => addNotification(memberDoc.id, {
       title: 'New Task',
-      description: `A new task "${task.title}" was added in "${projectTitle}"`,
+      description: `A new task "${task.description}" was added in "${projectTitle}"`,
       type: 'task',
       projectId: task.projectId
     }));
@@ -208,6 +206,10 @@ export const deleteTask = async (projectId: string, taskId: string) => {
 export const addShoppingItem = async (item: Omit<ShoppingItem, 'id' | 'purchased'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${item.projectId}/shoppingItems`, id), { ...item, id, purchased: false });
+};
+
+export const deleteShoppingItem = async (projectId: string, itemId: string) => {
+  await deleteDoc(doc(db, `projects/${projectId}/shoppingItems`, itemId));
 };
 
 export const purchaseItem = async (itemId: string, projectId: string, actualCost: number, purchaserId: string, splits: { userId: string; amount: number }[], proofImageUrl?: string) => {
@@ -244,7 +246,6 @@ export const purchaseItem = async (itemId: string, projectId: string, actualCost
   const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
 
   const notificationPromises = splits
-    .filter(split => split.userId !== purchaserId)
     .map(split => addNotification(split.userId, {
       title: 'New Expense',
       description: `${purchaserName} purchased an item in "${projectTitle}". You owe $${split.amount.toFixed(2)}.`,
@@ -265,7 +266,6 @@ export const createPoll = async (poll: Omit<Poll, 'id' | 'closed'>) => {
   const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
   
   const notificationPromises = membersSnap.docs
-    .filter(doc => doc.id !== auth.currentUser?.uid)
     .map(memberDoc => addNotification(memberDoc.id, {
       title: 'New Poll',
       description: `A new poll "${poll.question}" was created in "${projectTitle}"`,
@@ -307,7 +307,6 @@ export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp'>) =>
   const userName = userDoc.exists() ? (userDoc.data() as User).name : 'Someone';
 
   const notificationPromises = membersSnap.docs
-    .filter(doc => doc.id !== message.userId)
     .map(memberDoc => addNotification(memberDoc.id, {
       title: 'New Message',
       description: `${userName} sent a message in "${projectTitle}"`,
@@ -328,7 +327,6 @@ export const addExpense = async (expense: Omit<Expense, 'id'>) => {
   const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
 
   const notificationPromises = expense.splits
-    .filter(split => split.userId !== expense.purchaserId)
     .map(split => addNotification(split.userId, {
       title: 'New Expense',
       description: `${purchaserName} added an expense "${expense.description}" in "${projectTitle}". You owe $${split.amount.toFixed(2)}.`,
@@ -337,6 +335,10 @@ export const addExpense = async (expense: Omit<Expense, 'id'>) => {
     }));
   
   await Promise.all(notificationPromises);
+};
+
+export const deleteExpense = async (projectId: string, expenseId: string) => {
+  await deleteDoc(doc(db, `projects/${projectId}/expenses`, expenseId));
 };
 
 export const settleDebt = async (settlement: Omit<Settlement, 'id' | 'settled' | 'date'>) => {
@@ -354,6 +356,10 @@ export const settleDebt = async (settlement: Omit<Settlement, 'id' | 'settled' |
     type: 'payment',
     projectId: settlement.projectId
   });
+};
+
+export const deleteSettlement = async (projectId: string, settlementId: string) => {
+  await deleteDoc(doc(db, `projects/${projectId}/settlements`, settlementId));
 };
 
 // Notification Services

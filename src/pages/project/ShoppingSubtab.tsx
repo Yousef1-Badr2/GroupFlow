@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Plus, ShoppingCart, CheckCircle2, DollarSign, ImagePlus, X, Loader2 } from "lucide-react";
+import { Plus, ShoppingCart, CheckCircle2, DollarSign, ImagePlus, X, Loader2, Trash2 } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
 import * as firestoreService from "../../lib/firestoreService";
@@ -14,6 +14,16 @@ export default function ShoppingSubtab() {
   const items = shoppingItems.filter(i => i.projectId === project.id);
   const pendingItems = items.filter(i => !i.purchased);
   const purchasedItems = items.filter(i => i.purchased);
+
+  const handleDelete = async (itemId: string) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      try {
+        await firestoreService.deleteShoppingItem(project.id, itemId);
+      } catch (error) {
+        console.error("Failed to delete item:", error);
+      }
+    }
+  };
 
   return (
     <div className="h-full flex flex-col p-4 relative">
@@ -49,11 +59,22 @@ export default function ShoppingSubtab() {
                           Est. ${item.estimatedCost.toFixed(2)}
                         </p>
                       </div>
-                      {item.requestedImageUrl && (
-                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-800">
-                          <img src={item.requestedImageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3">
+                        {item.requestedImageUrl && (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-800">
+                            <img src={item.requestedImageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                        {!project.isArchived && userRole === 'leader' && (
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            title="Delete Item"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -76,11 +97,22 @@ export default function ShoppingSubtab() {
                           Bought for ${item.actualCost?.toFixed(2)}
                         </p>
                       </div>
-                      {(item.proofImageUrl || item.requestedImageUrl) && (
-                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-800">
-                          <img src={item.proofImageUrl || item.requestedImageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3">
+                        {(item.proofImageUrl || item.requestedImageUrl) && (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 dark:border-slate-800">
+                            <img src={item.proofImageUrl || item.requestedImageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                        {!project.isArchived && userRole === 'leader' && (
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            title="Delete Item"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
