@@ -7,6 +7,8 @@ import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
 import Notifications from './pages/Notifications';
 import Account from './pages/Account';
+import Login from './pages/Login';
+import FirebaseSync from './components/FirebaseSync';
 
 import ProjectDetails from './pages/ProjectDetails';
 import TasksSubtab from './pages/project/TasksSubtab';
@@ -17,7 +19,7 @@ import ChatSubtab from './pages/project/ChatSubtab';
 import PaymentsSubtab from './pages/project/PaymentsSubtab';
 
 export default function App() {
-  const { theme, colorTheme } = useStore();
+  const { theme, colorTheme, currentUser, isAuthReady } = useStore();
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -47,24 +49,41 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Projects />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="notifications" element={<Notifications />} />
-          <Route path="account" element={<Account />} />
-        </Route>
-        
-        <Route path="/project/:id" element={<ProjectDetails />}>
-          <Route index element={<Navigate to="tasks" replace />} />
-          <Route path="tasks" element={<TasksSubtab />} />
-          <Route path="members" element={<MembersSubtab />} />
-          <Route path="shopping" element={<ShoppingSubtab />} />
-          <Route path="polls" element={<PollsSubtab />} />
-          <Route path="chat" element={<ChatSubtab />} />
-          <Route path="payments" element={<PaymentsSubtab />} />
-        </Route>
-      </Routes>
+      <FirebaseSync />
+      {!isAuthReady ? (
+        <div className="min-h-screen bg-primary-50 dark:bg-[#121212] flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <Routes>
+          {!currentUser ? (
+            <>
+              <Route path="/login" element={<Login />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </>
+          ) : (
+            <>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Projects />} />
+                <Route path="tasks" element={<Tasks />} />
+                <Route path="notifications" element={<Notifications />} />
+                <Route path="account" element={<Account />} />
+              </Route>
+              
+              <Route path="/project/:id" element={<ProjectDetails />}>
+                <Route index element={<Navigate to="tasks" replace />} />
+                <Route path="tasks" element={<TasksSubtab />} />
+                <Route path="members" element={<MembersSubtab />} />
+                <Route path="shopping" element={<ShoppingSubtab />} />
+                <Route path="polls" element={<PollsSubtab />} />
+                <Route path="chat" element={<ChatSubtab />} />
+                <Route path="payments" element={<PaymentsSubtab />} />
+              </Route>
+              <Route path="/login" element={<Navigate to="/" replace />} />
+            </>
+          )}
+        </Routes>
+      )}
     </BrowserRouter>
   );
 }

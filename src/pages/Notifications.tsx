@@ -3,9 +3,10 @@ import { Link } from "react-router-dom";
 import { Bell, CheckCircle2, MessageSquare, ListTodo, CreditCard, Info } from "lucide-react";
 import { useStore } from "../store";
 import { formatDistanceToNow } from "date-fns";
+import * as firestoreService from "../lib/firestoreService";
 
 export default function Notifications() {
-  const { currentUser, notifications, projects, markNotificationRead } = useStore();
+  const { currentUser, notifications, projects } = useStore();
   const [filter, setFilter] = useState<"all" | "task" | "message" | "poll" | "payment">("all");
 
   if (!currentUser) return null;
@@ -26,6 +27,23 @@ export default function Notifications() {
     }
   };
 
+  const handleMarkRead = async (notificationId: string) => {
+    if (!currentUser) return;
+    try {
+      await firestoreService.markNotificationRead(currentUser.id, notificationId);
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+  };
+
+  const filterTypes = [
+    { id: 'all', label: 'All', icon: <Bell size={18} /> },
+    { id: 'task', label: 'Tasks', icon: <ListTodo size={18} /> },
+    { id: 'message', label: 'Messages', icon: <MessageSquare size={18} /> },
+    { id: 'poll', label: 'Polls', icon: <CheckCircle2 size={18} /> },
+    { id: 'payment', label: 'Payments', icon: <CreditCard size={18} /> },
+  ];
+
   return (
     <div className="p-4 max-w-md mx-auto h-full flex flex-col">
       <div className="flex items-center justify-between mb-6 pt-4">
@@ -33,17 +51,20 @@ export default function Notifications() {
       </div>
 
       <div className="flex space-x-2 overflow-x-auto pb-4 mb-2 scrollbar-hide">
-        {['all', 'task', 'message', 'poll', 'payment'].map((type) => (
+        {filterTypes.map((type) => (
           <button
-            key={type}
-            onClick={() => setFilter(type as any)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              filter === type 
+            key={type.id}
+            onClick={() => setFilter(type.id as any)}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+              filter === type.id 
                 ? 'bg-primary-700 text-white dark:bg-primary-500 dark:text-slate-900' 
                 : 'bg-primary-50 text-slate-600 hover:bg-primary-100 dark:bg-primary-900/20 dark:text-slate-400 dark:hover:bg-primary-900/40'
             }`}
           >
-            {type.charAt(0).toUpperCase() + type.slice(1)}
+            {type.icon}
+            <span className={filter === type.id ? 'block' : 'hidden sm:block'}>
+              {type.label}
+            </span>
           </button>
         ))}
       </div>
@@ -61,7 +82,7 @@ export default function Notifications() {
             return (
               <div 
                 key={notification.id} 
-                onClick={() => !notification.read && markNotificationRead(notification.id)}
+                onClick={() => !notification.read && handleMarkRead(notification.id)}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                   notification.read 
                     ? 'bg-white dark:bg-[#1E1E1E] border-primary-100 dark:border-primary-900/30 opacity-70' 

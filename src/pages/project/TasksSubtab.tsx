@@ -4,10 +4,11 @@ import { Plus, CheckSquare, Clock } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
 import { format, isPast, isToday, isTomorrow } from "date-fns";
+import * as firestoreService from "../../lib/firestoreService";
 
 export default function TasksSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { tasks, members, currentUser, addTask, toggleTask } = useStore();
+  const { tasks, members, currentUser } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
 
   const projectTasks = tasks.filter(t => t.projectId === project.id).sort((a, b) => a.dueDate - b.dueDate);
@@ -22,6 +23,15 @@ export default function TasksSubtab() {
       return format(dateNum, 'MMM d');
     }
     return format(dateNum, 'MMM d, yyyy');
+  };
+
+  const handleToggleTask = async (taskId: string, completed: boolean) => {
+    if (!currentUser) return;
+    try {
+      await firestoreService.toggleTask(project.id, taskId, !completed, currentUser.id);
+    } catch (error) {
+      console.error("Failed to toggle task:", error);
+    }
   };
 
   return (
@@ -43,7 +53,7 @@ export default function TasksSubtab() {
                 className={`bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 flex items-start gap-3 transition-opacity ${task.completed ? 'opacity-60' : ''}`}
               >
                 <button 
-                  onClick={() => !project.isArchived && toggleTask(task.id)}
+                  onClick={() => !project.isArchived && handleToggleTask(task.id, task.completed)}
                   disabled={project.isArchived}
                   className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
                     task.completed 
@@ -118,22 +128,25 @@ function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { 
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
-  const addTask = useStore(state => state.addTask);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (description.trim() && dueDate) {
       // Parse the date as local time to avoid timezone shifts
       const [year, month, day] = dueDate.split('-').map(Number);
       const dateObj = new Date(year, month - 1, day);
       
-      addTask({
-        projectId,
-        description: description.trim(),
-        dueDate: dateObj.getTime(),
-        assignedTo
-      });
-      onClose();
+      try {
+        await firestoreService.addTask({
+          projectId,
+          description: description.trim(),
+          dueDate: dateObj.getTime(),
+          assignedTo
+        });
+        onClose();
+      } catch (error) {
+        console.error("Failed to add task:", error);
+      }
     }
   };
 

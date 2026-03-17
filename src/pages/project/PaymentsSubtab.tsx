@@ -4,10 +4,11 @@ import { DollarSign, ArrowRightLeft, CheckCircle2 } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
 import { format } from "date-fns";
+import * as firestoreService from "../../lib/firestoreService";
 
 export default function PaymentsSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { expenses, settlements, members, currentUser, settleDebt } = useStore();
+  const { expenses, settlements, members, currentUser } = useStore();
 
   const projectExpenses = expenses.filter(e => e.projectId === project.id);
   const projectSettlements = settlements.filter(s => s.projectId === project.id);
@@ -65,6 +66,19 @@ export default function PaymentsSubtab() {
     return `User ${userId.substring(0, 4)}`;
   };
 
+  const handleSettleDebt = async (debt: { from: string; to: string; amount: number }) => {
+    try {
+      await firestoreService.settleDebt({
+        projectId: project.id,
+        fromUserId: debt.from,
+        toUserId: debt.to,
+        amount: debt.amount
+      });
+    } catch (error) {
+      console.error("Failed to settle debt:", error);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col p-4 relative">
       <div className="flex-1 overflow-y-auto space-y-6 pb-20">
@@ -108,12 +122,7 @@ export default function PaymentsSubtab() {
                       </span>
                       {!project.isArchived && (isMeOwe || isMeOwed || userRole === 'leader') && (
                         <button
-                          onClick={() => settleDebt({
-                            projectId: project.id,
-                            fromUserId: debt.from,
-                            toUserId: debt.to,
-                            amount: debt.amount
-                          })}
+                          onClick={() => handleSettleDebt(debt)}
                           className="text-xs font-bold text-primary-700 dark:text-primary-500 hover:underline mt-1"
                         >
                           Settle Up

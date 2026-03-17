@@ -3,9 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, Filter, Users, Archive, Folder, MoreVertical, LogOut, CheckCircle } from "lucide-react";
 import { useStore } from "../store";
 import { format } from "date-fns";
+import * as firestoreService from "../lib/firestoreService";
 
 export default function Projects() {
-  const { currentUser, projects, members, archiveProject, unarchiveProject, leaveProject, updateProjectStatus } = useStore();
+  const { currentUser, projects, members } = useStore();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -37,6 +38,30 @@ export default function Projects() {
     const matchesArchive = p.isArchived === showArchived;
     return matchesSearch && matchesArchive;
   });
+
+  const handleArchive = async (projectId: string, isArchived: boolean) => {
+    try {
+      await firestoreService.archiveProject(projectId, !isArchived);
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+    }
+  };
+
+  const handleUpdateStatus = async (projectId: string, currentStatus: string) => {
+    try {
+      await firestoreService.updateProjectStatus(projectId, currentStatus === 'completed' ? 'active' : 'completed');
+    } catch (error) {
+      console.error("Failed to update project status:", error);
+    }
+  };
+
+  const handleLeave = async (projectId: string, isLeader: boolean) => {
+    try {
+      await firestoreService.leaveProject(projectId, currentUser.id, isLeader);
+    } catch (error) {
+      console.error("Failed to leave project:", error);
+    }
+  };
 
   return (
     <div className="p-4 max-w-md mx-auto h-full flex flex-col" onClick={() => setActiveMenu(null)}>
@@ -102,11 +127,7 @@ export default function Projects() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (project.isArchived) {
-                              unarchiveProject(project.id);
-                            } else {
-                              archiveProject(project.id);
-                            }
+                            handleArchive(project.id, project.isArchived);
                             setActiveMenu(null);
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center"
@@ -119,7 +140,7 @@ export default function Projects() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              updateProjectStatus(project.id, project.status === 'completed' ? 'active' : 'completed');
+                              handleUpdateStatus(project.id, project.status);
                               setActiveMenu(null);
                             }}
                             className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center"
@@ -199,7 +220,7 @@ export default function Projects() {
       {/* Modals will go here, simplified for now */}
       {confirmLeave && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 w-full max-sm shadow-xl">
             <h2 className="text-xl font-bold mb-2">Leave Project</h2>
             <p className="text-slate-500 dark:text-slate-400 mb-6">
               {confirmLeave.isLeader 
@@ -215,7 +236,7 @@ export default function Projects() {
               </button>
               <button 
                 onClick={() => {
-                  leaveProject(confirmLeave.id);
+                  handleLeave(confirmLeave.id, confirmLeave.isLeader);
                   setConfirmLeave(null);
                 }} 
                 className="flex-1 py-3 bg-rose-600 text-white font-medium rounded-xl"
@@ -235,12 +256,12 @@ export default function Projects() {
 
 function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState("");
-  const createProject = useStore(state => state.createProject);
+  const { currentUser } = useStore();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (title.trim()) {
-      createProject(title.trim());
+    if (title.trim() && currentUser) {
+      await firestoreService.createProject(currentUser.id, title.trim());
       onClose();
     }
   };
@@ -271,12 +292,12 @@ function CreateProjectModal({ onClose }: { onClose: () => void }) {
 function JoinProjectModal({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const joinProject = useStore(state => state.joinProject);
+  const { currentUser } = useStore();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.trim()) {
-      const projectId = joinProject(code.trim().toUpperCase());
+    if (code.trim() && currentUser) {
+      const projectId = await firestoreService.joinProject(currentUser.id, code.trim().toUpperCase());
       if (projectId) {
         onClose();
       } else {

@@ -4,10 +4,11 @@ import { Send, Image as ImageIcon } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
 import { format } from "date-fns";
+import * as firestoreService from "../../lib/firestoreService";
 
 export default function ChatSubtab() {
   const { project } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { messages, currentUser, members, sendMessage } = useStore();
+  const { messages, currentUser } = useStore();
   const [text, setText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -21,15 +22,19 @@ export default function ChatSubtab() {
     scrollToBottom();
   }, [projectMessages]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim() && currentUser) {
-      sendMessage({
-        projectId: project.id,
-        userId: currentUser.id,
-        text: text.trim()
-      });
-      setText("");
+      try {
+        await firestoreService.sendMessage({
+          projectId: project.id,
+          userId: currentUser.id,
+          text: text.trim()
+        });
+        setText("");
+      } catch (error) {
+        console.error("Failed to send message:", error);
+      }
     }
   };
 

@@ -2,13 +2,22 @@ import { useState } from "react";
 import { Search, CheckSquare, Clock } from "lucide-react";
 import { useStore } from "../store";
 import { format, isPast, isToday, isTomorrow } from "date-fns";
+import * as firestoreService from "../lib/firestoreService";
 
 export default function Tasks() {
-  const { currentUser, tasks, projects, members, toggleTask } = useStore();
+  const { currentUser, tasks, projects, members } = useStore();
   const [search, setSearch] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
 
   if (!currentUser) return null;
+
+  const handleToggleTask = async (projectId: string, taskId: string, completed: boolean) => {
+    try {
+      await firestoreService.toggleTask(projectId, taskId, !completed, currentUser.id);
+    } catch (error) {
+      console.error("Error toggling task:", error);
+    }
+  };
 
   // Get all active projects the user is part of
   const activeProjectIds = projects
@@ -86,7 +95,7 @@ export default function Tasks() {
                         className={`p-4 flex items-start gap-3 ${index !== projectTasks.length - 1 ? 'border-b border-primary-100 dark:border-primary-900/30' : ''} ${task.completed ? 'opacity-60' : ''}`}
                       >
                         <button 
-                          onClick={() => toggleTask(task.id)}
+                          onClick={() => handleToggleTask(task.projectId, task.id, task.completed)}
                           className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
                             task.completed 
                               ? 'bg-primary-600 border-primary-600 text-white' 

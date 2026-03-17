@@ -3,6 +3,8 @@ export type Role = "leader" | "member";
 export interface User {
   id: string;
   name: string;
+  email?: string;
+  photoURL?: string;
   phone?: string;
   bio?: string;
 }
@@ -55,6 +57,7 @@ export interface Poll {
 }
 
 export interface Vote {
+  projectId: string;
   pollId: string;
   userId: string;
   optionIndex: number;

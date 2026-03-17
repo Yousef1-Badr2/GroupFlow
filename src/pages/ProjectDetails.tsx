@@ -2,12 +2,13 @@ import { useParams, Link, Outlet, useLocation, useNavigate } from "react-router-
 import { useStore } from "../store";
 import { ArrowLeft, Users, CheckSquare, ShoppingCart, BarChart2, MessageSquare, DollarSign, Settings, CheckCircle, Archive, LogOut } from "lucide-react";
 import { useState } from "react";
+import * as firestoreService from "../lib/firestoreService";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { projects, members, currentUser, updateProjectStatus, archiveProject, unarchiveProject, leaveProject } = useStore();
+  const { projects, members, currentUser } = useStore();
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
@@ -34,6 +35,34 @@ export default function ProjectDetails() {
     { id: 'polls', icon: <BarChart2 size={20} />, label: 'Polls' },
     { id: 'members', icon: <Users size={20} />, label: 'Members' },
   ];
+
+  const handleUpdateStatus = async () => {
+    try {
+      await firestoreService.updateProjectStatus(project.id, project.status === 'completed' ? 'active' : 'completed');
+      setShowSettingsMenu(false);
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
+  const handleArchive = async () => {
+    try {
+      await firestoreService.archiveProject(project.id, !project.isArchived);
+      setShowSettingsMenu(false);
+    } catch (error) {
+      console.error("Failed to archive:", error);
+    }
+  };
+
+  const handleLeave = async () => {
+    try {
+      await firestoreService.leaveProject(project.id, currentUser.id, userRole === 'leader');
+      setConfirmLeave(false);
+      navigate('/');
+    } catch (error) {
+      console.error("Failed to leave:", error);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-primary-50/30 dark:bg-[#121212] text-slate-900 dark:text-slate-100 transition-colors">
@@ -64,10 +93,7 @@ export default function ProjectDetails() {
               <div className="absolute top-12 right-0 bg-white dark:bg-[#2C2C2C] rounded-xl shadow-lg border border-primary-100 dark:border-primary-900/30 py-1 z-50 min-w-[180px]">
                 {userRole === 'leader' && (
                   <button
-                    onClick={() => {
-                      updateProjectStatus(project.id, project.status === 'completed' ? 'active' : 'completed');
-                      setShowSettingsMenu(false);
-                    }}
+                    onClick={handleUpdateStatus}
                     className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center border-b border-primary-100 dark:border-primary-900/30"
                   >
                     <CheckCircle size={16} className="mr-3 text-emerald-500" />
@@ -76,14 +102,7 @@ export default function ProjectDetails() {
                 )}
                 
                 <button
-                  onClick={() => {
-                    if (project.isArchived) {
-                      unarchiveProject(project.id);
-                    } else {
-                      archiveProject(project.id);
-                    }
-                    setShowSettingsMenu(false);
-                  }}
+                  onClick={handleArchive}
                   className="w-full text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center"
                 >
                   <Archive size={16} className="mr-3" />
@@ -115,14 +134,16 @@ export default function ProjectDetails() {
               <Link
                 key={tab.id}
                 to={`/project/${id}/${tab.id}`}
-                className={`flex items-center px-4 py-3 whitespace-nowrap border-b-2 transition-colors ${
+                className={`flex items-center px-4 py-3 whitespace-nowrap border-b-2 transition-all duration-300 ${
                   isActive 
-                    ? 'border-primary-700 text-primary-700 dark:border-primary-500 dark:text-primary-500 font-medium bg-primary-50/50 dark:bg-primary-950/10' 
-                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+                    ? 'border-primary-700 text-primary-700 dark:border-primary-500 dark:text-primary-500 font-medium bg-primary-50/50 dark:bg-primary-950/10 flex-shrink-0' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 flex-shrink'
                 }`}
               >
-                <span className="mr-2">{tab.icon}</span>
-                <span className="text-sm">{tab.label}</span>
+                <span className={`${isActive ? 'mr-2' : 'mx-auto sm:mr-2'}`}>{tab.icon}</span>
+                <span className={`text-sm transition-all duration-300 ${isActive ? 'inline' : 'hidden sm:inline'}`}>
+                  {tab.label}
+                </span>
               </Link>
             );
           })}
@@ -136,7 +157,7 @@ export default function ProjectDetails() {
 
       {confirmLeave && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 w-full max-sm shadow-xl">
             <h2 className="text-xl font-bold mb-2">Leave Project</h2>
             <p className="text-slate-500 dark:text-slate-400 mb-6">
               {userRole === 'leader' 
@@ -151,11 +172,7 @@ export default function ProjectDetails() {
                 Cancel
               </button>
               <button 
-                onClick={() => {
-                  leaveProject(project.id);
-                  setConfirmLeave(false);
-                  navigate('/');
-                }} 
+                onClick={handleLeave} 
                 className="flex-1 py-3 bg-rose-600 text-white font-medium rounded-xl"
               >
                 Leave

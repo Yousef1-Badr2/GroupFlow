@@ -3,13 +3,31 @@ import { useOutletContext } from "react-router-dom";
 import { Plus, BarChart2, CheckCircle2 } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
+import * as firestoreService from "../../lib/firestoreService";
 
 export default function PollsSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { polls, votes, currentUser, votePoll, closePoll } = useStore();
+  const { polls, votes, currentUser } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
 
   const projectPolls = polls.filter(p => p.projectId === project.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  const handleVote = async (pollId: string, optionIndex: number, allowMultiple: boolean) => {
+    if (!currentUser) return;
+    try {
+      await firestoreService.votePoll(project.id, pollId, currentUser.id, optionIndex, allowMultiple);
+    } catch (error) {
+      console.error("Failed to vote:", error);
+    }
+  };
+
+  const handleClosePoll = async (pollId: string) => {
+    try {
+      await firestoreService.closePoll(project.id, pollId);
+    } catch (error) {
+      console.error("Failed to close poll:", error);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col p-4 relative">
@@ -41,7 +59,7 @@ export default function PollsSubtab() {
                     </span>
                   ) : userRole === 'leader' && !project.isArchived ? (
                     <button 
-                      onClick={() => closePoll(poll.id)}
+                      onClick={() => handleClosePoll(poll.id)}
                       className="text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
                     >
                       Close Poll
@@ -59,7 +77,7 @@ export default function PollsSubtab() {
                     return (
                       <div key={index} className="relative">
                         <button
-                          onClick={() => !poll.closed && !project.isArchived && votePoll(poll.id, index)}
+                          onClick={() => !poll.closed && !project.isArchived && handleVote(poll.id, index, !!poll.allowMultipleChoices)}
                           disabled={poll.closed || project.isArchived}
                           className={`w-full flex justify-between items-center p-3 rounded-xl border transition-all relative z-10 ${
                             isMyVote 
@@ -118,7 +136,6 @@ function AddPollModal({ projectId, onClose }: { projectId: string; onClose: () =
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [allowMultipleChoices, setAllowMultipleChoices] = useState(false);
-  const createPoll = useStore(state => state.createPoll);
 
   const handleAddOption = () => setOptions([...options, ""]);
   const handleOptionChange = (index: number, value: string) => {
@@ -132,17 +149,21 @@ function AddPollModal({ projectId, onClose }: { projectId: string; onClose: () =
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validOptions = options.filter(o => o.trim() !== "");
     if (question.trim() && validOptions.length >= 2) {
-      createPoll({
-        projectId,
-        question: question.trim(),
-        options: validOptions,
-        allowMultipleChoices
-      });
-      onClose();
+      try {
+        await firestoreService.createPoll({
+          projectId,
+          question: question.trim(),
+          options: validOptions,
+          allowMultipleChoices
+        });
+        onClose();
+      } catch (error) {
+        console.error("Failed to create poll:", error);
+      }
     }
   };
 

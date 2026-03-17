@@ -3,10 +3,11 @@ import { useOutletContext } from "react-router-dom";
 import { Plus, ShoppingCart, CheckCircle2, DollarSign } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
+import * as firestoreService from "../../lib/firestoreService";
 
 export default function ShoppingSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { shoppingItems, currentUser, addShoppingItem, purchaseItem } = useStore();
+  const { shoppingItems } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [purchasingItem, setPurchasingItem] = useState<string | null>(null);
 
@@ -103,17 +104,20 @@ export default function ShoppingSubtab() {
 function AddItemModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const [name, setName] = useState("");
   const [estimatedCost, setEstimatedCost] = useState("");
-  const addShoppingItem = useStore(state => state.addShoppingItem);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim() && estimatedCost) {
-      addShoppingItem({
-        projectId,
-        name: name.trim(),
-        estimatedCost: parseFloat(estimatedCost)
-      });
-      onClose();
+      try {
+        await firestoreService.addShoppingItem({
+          projectId,
+          name: name.trim(),
+          estimatedCost: parseFloat(estimatedCost)
+        });
+        onClose();
+      } catch (error) {
+        console.error("Failed to add shopping item:", error);
+      }
     }
   };
 
@@ -156,10 +160,10 @@ function AddItemModal({ projectId, onClose }: { projectId: string; onClose: () =
 
 function PurchaseItemModal({ itemId, projectId, onClose }: { itemId: string; projectId: string; onClose: () => void }) {
   const [actualCost, setActualCost] = useState("");
-  const { purchaseItem, currentUser, members } = useStore();
+  const { currentUser, members } = useStore();
   const projectMembers = members.filter(m => m.projectId === projectId);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (actualCost && currentUser) {
       const cost = parseFloat(actualCost);
@@ -167,8 +171,12 @@ function PurchaseItemModal({ itemId, projectId, onClose }: { itemId: string; pro
       const splitAmount = cost / projectMembers.length;
       const splits = projectMembers.map(m => ({ userId: m.userId, amount: splitAmount }));
       
-      purchaseItem(itemId, cost, currentUser.id, splits);
-      onClose();
+      try {
+        await firestoreService.purchaseItem(itemId, projectId, cost, currentUser.id, splits);
+        onClose();
+      } catch (error) {
+        console.error("Failed to purchase item:", error);
+      }
     }
   };
 

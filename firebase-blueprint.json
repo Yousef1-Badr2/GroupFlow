@@ -1,0 +1,217 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "bio": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Project details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "joinCode": { "type": "string" },
+        "leaderId": { "type": "string" },
+        "isArchived": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed"] }
+      },
+      "required": ["id", "title", "joinCode", "leaderId", "createdAt"]
+    },
+    "ProjectMember": {
+      "title": "Project Member",
+      "description": "Mapping of users to projects with roles",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["leader", "member"] }
+      },
+      "required": ["projectId", "userId", "role"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task within a project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "number" },
+        "assignedTo": { "type": "array", "items": { "type": "string" } },
+        "completed": { "type": "boolean" },
+        "completedBy": { "type": "string" }
+      },
+      "required": ["id", "projectId", "description", "dueDate", "completed"]
+    },
+    "ShoppingItem": {
+      "title": "Shopping Item",
+      "description": "An item to be purchased for the project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "estimatedCost": { "type": "number" },
+        "purchased": { "type": "boolean" },
+        "purchasedBy": { "type": "string" },
+        "actualCost": { "type": "number" }
+      },
+      "required": ["id", "projectId", "name", "estimatedCost", "purchased"]
+    },
+    "Poll": {
+      "title": "Poll",
+      "description": "A poll for project members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "question": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "allowMultipleChoices": { "type": "boolean" },
+        "deadline": { "type": "number" },
+        "closed": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "projectId", "question", "options", "closed"]
+    },
+    "Vote": {
+      "title": "Vote",
+      "description": "A vote cast in a poll",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "pollId": { "type": "string" },
+        "userId": { "type": "string" },
+        "optionIndex": { "type": "number" }
+      },
+      "required": ["projectId", "pollId", "userId", "optionIndex"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "attachment": { "type": "string" }
+      },
+      "required": ["id", "projectId", "userId", "text", "timestamp"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "An expense recorded in the project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "purchaserId": { "type": "string" },
+        "total": { "type": "number" },
+        "description": { "type": "string" },
+        "date": { "type": "number" },
+        "splits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["id", "projectId", "purchaserId", "total", "description", "date", "splits"]
+    },
+    "Settlement": {
+      "title": "Settlement",
+      "description": "A debt settlement between users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "fromUserId": { "type": "string" },
+        "toUserId": { "type": "string" },
+        "amount": { "type": "number" },
+        "settled": { "type": "boolean" },
+        "date": { "type": "number" }
+      },
+      "required": ["id", "projectId", "fromUserId", "toUserId", "amount", "settled", "date"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "projectId": { "type": "string" },
+        "type": { "type": "string", "enum": ["task", "message", "poll", "payment", "system"] },
+        "timestamp": { "type": "number" },
+        "read": { "type": "boolean" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "title", "description", "type", "timestamp", "read", "userId"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "projects/{projectId}": {
+      "schema": "Project",
+      "description": "Projects"
+    },
+    "projects/{projectId}/members/{userId}": {
+      "schema": "ProjectMember",
+      "description": "Project members"
+    },
+    "projects/{projectId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Project tasks"
+    },
+    "projects/{projectId}/shoppingItems/{itemId}": {
+      "schema": "ShoppingItem",
+      "description": "Project shopping items"
+    },
+    "projects/{projectId}/polls/{pollId}": {
+      "schema": "Poll",
+      "description": "Project polls"
+    },
+    "projects/{projectId}/votes/{voteId}": {
+      "schema": "Vote",
+      "description": "Poll votes"
+    },
+    "projects/{projectId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Project chat messages"
+    },
+    "projects/{projectId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Project expenses"
+    },
+    "projects/{projectId}/settlements/{settlementId}": {
+      "schema": "Settlement",
+      "description": "Project settlements"
+    },
+    "users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    }
+  }
+}

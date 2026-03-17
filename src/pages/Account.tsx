@@ -1,51 +1,34 @@
 import { useState, useEffect } from "react";
-import { User, Settings, Moon, Sun, Monitor, Trash2, Save } from "lucide-react";
+import { User, Settings, Moon, Sun, Monitor, LogOut, Save } from "lucide-react";
 import { useStore } from "../store";
-import { v4 as uuidv4 } from "uuid";
+import { auth } from "../lib/firebase";
+import { signOut } from "firebase/auth";
 
 export default function Account() {
-  const { currentUser, setCurrentUser, updateUser, theme, setTheme, colorTheme, setColorTheme, clearData } = useStore();
+  const { currentUser, theme, setTheme, colorTheme, setColorTheme } = useStore();
   const [name, setName] = useState(currentUser?.name || "");
-  const [phone, setPhone] = useState(currentUser?.phone || "");
-  const [bio, setBio] = useState(currentUser?.bio || "");
-  const [isEditing, setIsEditing] = useState(!currentUser);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [bio, setBio] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       setName(currentUser.name);
-      setPhone(currentUser.phone || "");
-      setBio(currentUser.bio || "");
     }
   }, [currentUser]);
 
   const handleSave = () => {
-    if (!name.trim()) return;
-    
-    if (!currentUser) {
-      setCurrentUser({
-        id: uuidv4(),
-        name: name.trim(),
-        phone: phone.trim(),
-        bio: bio.trim(),
-      });
-    } else {
-      updateUser({
-        name: name.trim(),
-        phone: phone.trim(),
-        bio: bio.trim(),
-      });
-    }
+    // In this version, we're not updating user profile in Firestore yet
+    // but we could implement it in firestoreService
     setIsEditing(false);
   };
 
-  const handleClearData = () => {
-    clearData();
-    setIsEditing(true);
-    setName("");
-    setPhone("");
-    setBio("");
-    setConfirmClear(false);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+    }
   };
 
   return (
@@ -66,8 +49,10 @@ export default function Account() {
         {/* Profile Section */}
         <section className="bg-white dark:bg-[#1E1E1E] p-6 rounded-3xl shadow-sm border border-primary-100 dark:border-primary-900/30">
           <div className="flex items-center justify-center mb-6">
-            <div className="w-24 h-24 bg-primary-50 dark:bg-primary-900/20 rounded-full flex items-center justify-center border-4 border-white dark:border-[#1E1E1E] shadow-md">
-              {name ? (
+            <div className="w-24 h-24 bg-primary-50 dark:bg-primary-900/20 rounded-full flex items-center justify-center border-4 border-white dark:border-[#1E1E1E] shadow-md overflow-hidden">
+              {currentUser?.photoURL ? (
+                <img src={currentUser.photoURL} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : name ? (
                 <span className="text-3xl font-bold text-primary-400">{name.charAt(0).toUpperCase()}</span>
               ) : (
                 <User size={40} className="text-primary-300" />
@@ -87,26 +72,6 @@ export default function Account() {
                   className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phone (Optional)</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. +1 234 567 8900"
-                  className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bio (Optional)</label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="A short bio about yourself..."
-                  rows={3}
-                  className="w-full p-3 bg-primary-50/50 dark:bg-[#121212] border border-primary-100 dark:border-primary-900/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-600 resize-none"
-                />
-              </div>
               <button
                 onClick={handleSave}
                 disabled={!name.trim()}
@@ -118,9 +83,8 @@ export default function Account() {
             </div>
           ) : (
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">{currentUser.name}</h2>
-              {currentUser.phone && <p className="text-slate-500 dark:text-slate-400">{currentUser.phone}</p>}
-              {currentUser.bio && <p className="text-slate-600 dark:text-slate-300 mt-4 italic">"{currentUser.bio}"</p>}
+              <h2 className="text-2xl font-bold">{currentUser?.name}</h2>
+              <p className="text-slate-500 dark:text-slate-400">{currentUser?.email}</p>
             </div>
           )}
         </section>
@@ -189,44 +153,19 @@ export default function Account() {
 
             <div className="p-4 flex items-center justify-between">
               <div>
-                <p className="font-medium text-rose-600 dark:text-rose-400">Clear Data</p>
-                <p className="text-xs text-slate-500">Delete all local projects and tasks</p>
+                <p className="font-medium text-rose-600 dark:text-rose-400">Sign Out</p>
+                <p className="text-xs text-slate-500">Log out of your account</p>
               </div>
               <button
-                onClick={() => setConfirmClear(true)}
+                onClick={handleLogout}
                 className="p-3 bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
               >
-                <Trash2 size={20} />
+                <LogOut size={20} />
               </button>
             </div>
           </div>
         </section>
       </div>
-
-      {confirmClear && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-6 w-full max-w-sm shadow-xl">
-            <h2 className="text-xl font-bold mb-2">Clear Data</h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">
-              Are you sure you want to delete all local data? This cannot be undone.
-            </p>
-            <div className="flex space-x-3">
-              <button 
-                onClick={() => setConfirmClear(false)} 
-                className="flex-1 py-3 text-slate-600 dark:text-slate-300 font-medium bg-primary-50 dark:bg-primary-900/20 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleClearData} 
-                className="flex-1 py-3 bg-rose-600 text-white font-medium rounded-xl"
-              >
-                Clear Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

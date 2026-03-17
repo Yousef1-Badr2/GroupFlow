@@ -3,10 +3,11 @@ import { useOutletContext } from "react-router-dom";
 import { User, Shield, UserMinus, Key, Copy, Check } from "lucide-react";
 import { useStore } from "../../store";
 import { Project, Role } from "../../types";
+import * as firestoreService from "../../lib/firestoreService";
 
 export default function MembersSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { members, removeMember, promoteMember, regenerateJoinCode, currentUser } = useStore();
+  const { members, currentUser } = useStore();
   const [copied, setCopied] = useState(false);
 
   const projectMembers = members.filter(m => m.projectId === project.id);
@@ -15,6 +16,30 @@ export default function MembersSubtab() {
     navigator.clipboard.writeText(project.joinCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRegenerateJoinCode = async () => {
+    try {
+      await firestoreService.regenerateJoinCode(project.id);
+    } catch (error) {
+      console.error("Failed to regenerate join code:", error);
+    }
+  };
+
+  const handlePromoteMember = async (memberId: string) => {
+    try {
+      await firestoreService.promoteMember(project.id, memberId);
+    } catch (error) {
+      console.error("Failed to promote member:", error);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    try {
+      await firestoreService.removeMember(project.id, memberId);
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+    }
   };
 
   return (
@@ -29,7 +54,7 @@ export default function MembersSubtab() {
             </h3>
             {userRole === 'leader' && (
               <button 
-                onClick={() => regenerateJoinCode(project.id)}
+                onClick={handleRegenerateJoinCode}
                 className="text-xs font-medium text-primary-700 dark:text-primary-500 hover:underline"
               >
                 Regenerate
@@ -86,14 +111,14 @@ export default function MembersSubtab() {
                 {userRole === 'leader' && !isMe && !project.isArchived && (
                   <div className="flex items-center space-x-2">
                     <button 
-                      onClick={() => promoteMember(project.id, member.userId)}
+                      onClick={() => handlePromoteMember(member.userId)}
                       className="p-2 text-slate-400 hover:text-primary-700 dark:hover:text-primary-500 transition-colors"
                       title="Make Leader"
                     >
                       <Shield size={18} />
                     </button>
                     <button 
-                      onClick={() => removeMember(project.id, member.userId)}
+                      onClick={() => handleRemoveMember(member.userId)}
                       className="p-2 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                       title="Remove Member"
                     >

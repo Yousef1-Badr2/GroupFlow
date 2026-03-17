@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isProjectMember(projectId) {
+      return isAuthenticated() && exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
+    }
+
+    function isProjectLeader(projectId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'leader';
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['id', 'title', 'joinCode', 'leaderId', 'createdAt']) &&
+             data.id is string && data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.joinCode is string && data.leaderId is string && data.createdAt is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    // Collection Group Rules
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isProjectMember(resource.data.projectId));
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (isProjectLeader(resource.data.projectId) || resource.data.userId == request.auth.uid);
+    }
+
+    match /{path=**}/tasks/{taskId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /{path=**}/shoppingItems/{itemId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /{path=**}/polls/{pollId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /{path=**}/votes/{voteId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /{path=**}/messages/{messageId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /{path=**}/expenses/{expenseId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /{path=**}/settlements/{settlementId} {
+      allow read: if isAuthenticated() && isProjectMember(resource.data.projectId);
+      allow create, update, delete: if isAuthenticated() && isProjectMember(request.resource.data.projectId);
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProject(request.resource.data);
+      allow update, delete: if isProjectLeader(projectId);
+
+      // Sub-collection rules (redundant but good for direct access)
+      match /members/{memberId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isProjectLeader(projectId) || isOwner(memberId);
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
+
+      match /shoppingItems/{itemId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
+
+      match /polls/{pollId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
+
+      match /votes/{voteId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
+
+      match /messages/{messageId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isProjectMember(projectId);
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
+
+      match /settlements/{settlementId} {
+        allow read: if isProjectMember(projectId);
+        allow create, update, delete: if isProjectMember(projectId);
+      }
+    }
+
+    match /users/{userId}/notifications/{notificationId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}
