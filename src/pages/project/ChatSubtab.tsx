@@ -72,7 +72,7 @@ export default function ChatSubtab() {
   };
 
   const getUserName = (userId: string) => {
-    if (userId === currentUser?.id) return "You";
+    if (userId === currentUser?.id) return "Me";
     const user = users.find(u => u.id === userId);
     return user?.name || `User ${userId.substring(0, 4)}`;
   };

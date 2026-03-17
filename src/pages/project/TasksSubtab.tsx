@@ -8,11 +8,17 @@ import * as firestoreService from "../../lib/firestoreService";
 
 export default function TasksSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { tasks, members, currentUser } = useStore();
+  const { tasks, members, currentUser, users } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
 
   const projectTasks = tasks.filter(t => t.projectId === project.id).sort((a, b) => a.dueDate - b.dueDate);
   const projectMembers = members.filter(m => m.projectId === project.id);
+
+  const getUserName = (userId: string) => {
+    if (userId === currentUser?.id) return "Me";
+    const user = users.find(u => u.id === userId);
+    return user?.name || `User ${userId.substring(0, 4)}`;
+  };
 
   const formatDueDate = (dateNum: number) => {
     if (isToday(dateNum)) return `Today`;
@@ -78,11 +84,9 @@ export default function TasksSubtab() {
                     {task.assignedTo.length > 0 && !task.completed && (
                       <div className="flex gap-1">
                         {task.assignedTo.map(userId => {
-                          const isMe = currentUser && userId === currentUser.id;
-                          const displayName = isMe ? "Me" : `User ${userId.substring(0, 4)}`;
                           return (
                             <span key={userId} className="text-[10px] uppercase tracking-wider bg-primary-100 text-primary-800 dark:bg-primary-950/40 dark:text-primary-500 px-2 py-0.5 rounded-full font-bold">
-                              {displayName}
+                              {getUserName(userId)}
                             </span>
                           );
                         })}
@@ -91,7 +95,7 @@ export default function TasksSubtab() {
 
                     {task.completed && task.completedBy && (
                       <span className="text-[10px] uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
-                        Done by {task.completedBy === currentUser?.id ? "Me" : `User ${task.completedBy.substring(0, 4)}`}
+                        Done by {getUserName(task.completedBy)}
                       </span>
                     )}
                   </div>
@@ -125,6 +129,7 @@ export default function TasksSubtab() {
 }
 
 function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { projectId: string; members: any[]; userRole: Role; currentUser: any; onClose: () => void }) {
+  const { users } = useStore();
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
@@ -180,8 +185,8 @@ function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { 
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assign To</label>
               <div className="space-y-2 max-h-32 overflow-y-auto bg-primary-50/50 dark:bg-[#121212] p-3 rounded-xl border border-primary-100 dark:border-primary-900/30">
                 {members.map(m => {
-                  const isMe = m.userId === currentUser?.id;
-                  const displayName = isMe ? "Me" : `User ${m.userId.substring(0, 4)}`;
+                  const user = users.find(u => u.id === m.userId);
+                  const displayName = m.userId === currentUser?.id ? "Me" : (user?.name || `User ${m.userId.substring(0, 4)}`);
                   return (
                     <label key={m.userId} className="flex items-center space-x-3 cursor-pointer">
                       <input 
