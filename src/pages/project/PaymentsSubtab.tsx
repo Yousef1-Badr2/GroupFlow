@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import * as firestoreService from "../../lib/firestoreService";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 export default function PaymentsSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
@@ -15,6 +16,15 @@ export default function PaymentsSubtab() {
   const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
   const [localSettlements, setLocalSettlements] = useState<Settlement[]>([]);
   const [localMembers, setLocalMembers] = useState<ProjectMember[]>([]);
+  const [deleteModal, setDeleteModal] = useState<{ 
+    isOpen: boolean; 
+    type: 'expense' | 'settlement' | null; 
+    id: string | null 
+  }>({
+    isOpen: false,
+    type: null,
+    id: null,
+  });
 
   useEffect(() => {
     const expensesQ = query(collection(db, `projects/${project.id}/expenses`));
@@ -121,22 +131,26 @@ export default function PaymentsSubtab() {
   };
 
   const handleDeleteExpense = async (expenseId: string) => {
-    if (window.confirm("Are you sure you want to delete this expense?")) {
-      try {
-        await firestoreService.deleteExpense(project.id, expenseId);
-      } catch (error) {
-        console.error("Failed to delete expense:", error);
-      }
-    }
+    setDeleteModal({ isOpen: true, type: 'expense', id: expenseId });
   };
 
   const handleDeleteSettlement = async (settlementId: string) => {
-    if (window.confirm("Are you sure you want to delete this settlement?")) {
-      try {
-        await firestoreService.deleteSettlement(project.id, settlementId);
-      } catch (error) {
-        console.error("Failed to delete settlement:", error);
+    setDeleteModal({ isOpen: true, type: 'settlement', id: settlementId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.id || !deleteModal.type) return;
+    
+    try {
+      if (deleteModal.type === 'expense') {
+        await firestoreService.deleteExpense(project.id, deleteModal.id);
+      } else {
+        await firestoreService.deleteSettlement(project.id, deleteModal.id);
       }
+    } catch (error) {
+      console.error(`Failed to delete ${deleteModal.type}:`, error);
+    } finally {
+      setDeleteModal({ isOpen: false, type: null, id: null });
     }
   };
 
@@ -345,6 +359,15 @@ export default function PaymentsSubtab() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, type: null, id: null })}
+        onConfirm={confirmDelete}
+        title={`Delete ${deleteModal.type === 'expense' ? 'Expense' : 'Settlement'}`}
+        message={`Are you sure you want to delete this ${deleteModal.type}? This will affect the project balances.`}
+        isDestructive={true}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import * as firestoreService from '../lib/firestoreService';
 import { User } from '../types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function AdminDashboard() {
   const { currentUser } = useStore();
@@ -19,6 +20,20 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'trial'>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Modal state
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDestructive?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'admin') {
@@ -57,35 +72,47 @@ export default function AdminDashboard() {
 
   const handleToggleRole = async (userId: string, currentRole: 'admin' | 'user') => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    if (!window.confirm(`Are you sure you want to make this user an ${newRole}?`)) return;
     
-    setActionLoading(userId);
-    try {
-      await firestoreService.updateUserRole(userId, newRole);
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      toast.success(`User role updated to ${newRole}`);
-    } catch (error) {
-      console.error("Failed to update role:", error);
-      toast.error("Failed to update user role");
-    } finally {
-      setActionLoading(null);
-    }
+    setModalConfig({
+      isOpen: true,
+      title: 'Change User Role',
+      message: `Are you sure you want to make this user an ${newRole}?`,
+      onConfirm: async () => {
+        setActionLoading(userId);
+        try {
+          await firestoreService.updateUserRole(userId, newRole);
+          setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+          toast.success(`User role updated to ${newRole}`);
+        } catch (error) {
+          console.error("Failed to update role:", error);
+          toast.error("Failed to update user role");
+        } finally {
+          setActionLoading(null);
+        }
+      }
+    });
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
-    
-    setActionLoading(userId);
-    try {
-      await firestoreService.deleteUser(userId);
-      setUsers(users.filter(u => u.id !== userId));
-      toast.success("User deleted successfully");
-    } catch (error) {
-      console.error("Failed to delete user:", error);
-      toast.error("Failed to delete user");
-    } finally {
-      setActionLoading(null);
-    }
+    setModalConfig({
+      isOpen: true,
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user? This action cannot be undone and will remove all their data.',
+      isDestructive: true,
+      onConfirm: async () => {
+        setActionLoading(userId);
+        try {
+          await firestoreService.deleteUser(userId);
+          setUsers(users.filter(u => u.id !== userId));
+          toast.success("User deleted successfully");
+        } catch (error) {
+          console.error("Failed to delete user:", error);
+          toast.error("Failed to delete user");
+        } finally {
+          setActionLoading(null);
+        }
+      }
+    });
   };
 
   const filteredUsers = users.filter(user => {
@@ -291,6 +318,15 @@ export default function AdminDashboard() {
           </div>
         </div>
       </main>
+
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        isDestructive={modalConfig.isDestructive}
+      />
     </div>
   );
 }

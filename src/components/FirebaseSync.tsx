@@ -37,7 +37,7 @@ export default function FirebaseSync() {
           
           if (userSnap.exists()) {
             userData = userSnap.data() as User;
-            userData.name = user.displayName || userData.name || 'User';
+            userData.name = userData.name || user.displayName || 'User';
             userData.email = user.email || userData.email || '';
             userData.photoURL = user.photoURL || userData.photoURL || '';
             

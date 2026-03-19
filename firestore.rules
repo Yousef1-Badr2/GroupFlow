@@ -100,8 +100,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
                     (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
-                    (!('role' in request.resource.data) || request.resource.data.role == resource.data.role || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) &&
+                    (isAdmin() || (isOwner(userId) && 
+                                   request.resource.data.role == resource.data.role && 
+                                   request.resource.data.isApproved == resource.data.isApproved));
+      allow delete: if isAdmin();
     }
 
     match /projects/{projectId} {

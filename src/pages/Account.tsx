@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { User, Settings, Moon, Sun, Monitor, LogOut, Save, KeyRound, Loader2, Copy, Check, Shield } from "lucide-react";
 import { useStore } from "../store";
 import { auth } from "../lib/firebase";
-import { signOut } from "firebase/auth";
+import { signOut, updateProfile } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import * as firestoreService from "../lib/firestoreService";
 
 export default function Account() {
-  const { currentUser, theme, setTheme, colorTheme, setColorTheme } = useStore();
+  const { currentUser, theme, setTheme, colorTheme, setColorTheme, setCurrentUser } = useStore();
   const navigate = useNavigate();
   const [name, setName] = useState(currentUser?.name || "");
   const [phone, setPhone] = useState("");
@@ -36,10 +36,24 @@ export default function Account() {
     
     setIsSaving(true);
     try {
-      await firestoreService.syncUser({
+      const updatedUser = {
         ...currentUser,
         name: name.trim()
-      });
+      };
+      
+      // Update Firestore
+      await firestoreService.syncUser(updatedUser);
+      
+      // Update Auth Profile for consistency
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: name.trim()
+        });
+      }
+
+      // Update local state immediately
+      setCurrentUser(updatedUser);
+      
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update profile:", error);

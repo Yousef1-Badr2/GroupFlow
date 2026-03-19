@@ -6,12 +6,17 @@ import { Project, Role, ProjectMember } from "../../types";
 import * as firestoreService from "../../lib/firestoreService";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 export default function MembersSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
   const { currentUser, users } = useStore();
   const [copied, setCopied] = useState(false);
   const [localMembers, setLocalMembers] = useState<ProjectMember[]>([]);
+  const [removeModal, setRemoveModal] = useState<{ isOpen: boolean; userId: string | null }>({
+    isOpen: false,
+    userId: null,
+  });
 
   useEffect(() => {
     const membersQ = query(collection(db, `projects/${project.id}/members`));
@@ -39,11 +44,17 @@ export default function MembersSubtab() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!window.confirm("Are you sure you want to remove this member from the project?")) return;
+    setRemoveModal({ isOpen: true, userId: memberId });
+  };
+
+  const confirmRemove = async () => {
+    if (!removeModal.userId) return;
     try {
-      await firestoreService.removeMember(project.id, memberId);
+      await firestoreService.removeMember(project.id, removeModal.userId);
     } catch (error) {
       console.error("Failed to remove member:", error);
+    } finally {
+      setRemoveModal({ isOpen: false, userId: null });
     }
   };
 
@@ -156,6 +167,15 @@ export default function MembersSubtab() {
           })}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={removeModal.isOpen}
+        onClose={() => setRemoveModal({ isOpen: false, userId: null })}
+        onConfirm={confirmRemove}
+        title="Remove Member"
+        message="Are you sure you want to remove this member from the project? They will lose access to all project data."
+        isDestructive={true}
+      />
     </div>
   );
 }

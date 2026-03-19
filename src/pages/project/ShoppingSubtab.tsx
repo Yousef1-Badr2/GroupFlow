@@ -6,12 +6,17 @@ import { Project, Role, ShoppingItem } from "../../types";
 import * as firestoreService from "../../lib/firestoreService";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import ConfirmationModal from "../../components/ConfirmationModal";
 
 export default function ShoppingSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
   const [showAddModal, setShowAddModal] = useState(false);
   const [purchasingItem, setPurchasingItem] = useState<string | null>(null);
   const [localItems, setLocalItems] = useState<ShoppingItem[]>([]);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; itemId: string | null }>({
+    isOpen: false,
+    itemId: null,
+  });
 
   useEffect(() => {
     const q = query(collection(db, `projects/${project.id}/shoppingItems`));
@@ -26,12 +31,17 @@ export default function ShoppingSubtab() {
   const purchasedItems = items.filter(i => i.purchased);
 
   const handleDelete = async (itemId: string) => {
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        await firestoreService.deleteShoppingItem(project.id, itemId);
-      } catch (error) {
-        console.error("Failed to delete item:", error);
-      }
+    setDeleteModal({ isOpen: true, itemId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.itemId) return;
+    try {
+      await firestoreService.deleteShoppingItem(project.id, deleteModal.itemId);
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+    } finally {
+      setDeleteModal({ isOpen: false, itemId: null });
     }
   };
 
@@ -149,6 +159,15 @@ export default function ShoppingSubtab() {
           onClose={() => setPurchasingItem(null)} 
         />
       )}
+
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, itemId: null })}
+        onConfirm={confirmDelete}
+        title="Delete Item"
+        message="Are you sure you want to delete this item from the shopping list?"
+        isDestructive={true}
+      />
     </div>
   );
 }

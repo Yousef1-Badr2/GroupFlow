@@ -63,7 +63,11 @@ export const uploadImage = async (file: File, path: string): Promise<string> => 
 
 // User Services
 export const syncUser = async (user: User) => {
-  await setDoc(doc(db, 'users', user.id), user, { merge: true });
+  try {
+    await setDoc(doc(db, 'users', user.id), user, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `users/${user.id}`);
+  }
 };
 
 export const generateInviteCode = async (adminId: string, type: 'permanent' | 'temporary' = 'permanent') => {
@@ -514,20 +518,37 @@ export const addNotification = async (userId: string, notification: Omit<Notific
 
 // Admin Dashboard Services
 export const getAllUsers = async () => {
-  const snapshot = await getDocs(collection(db, 'users'));
-  return snapshot.docs.map(doc => doc.data() as User);
+  try {
+    const snapshot = await getDocs(collection(db, 'users'));
+    return snapshot.docs.map(doc => doc.data() as User);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, 'users');
+    return []; // Should not reach here as handleFirestoreError throws
+  }
 };
 
 export const updateUserApproval = async (userId: string, isApproved: boolean) => {
-  await updateDoc(doc(db, 'users', userId), { isApproved });
+  try {
+    await updateDoc(doc(db, 'users', userId), { isApproved });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+  }
 };
 
 export const updateUserRole = async (userId: string, role: 'admin' | 'user') => {
-  await updateDoc(doc(db, 'users', userId), { role });
+  try {
+    await updateDoc(doc(db, 'users', userId), { role });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+  }
 };
 
 export const deleteUser = async (userId: string) => {
-  await deleteDoc(doc(db, 'users', userId));
+  try {
+    await deleteDoc(doc(db, 'users', userId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+  }
 };
 
 // Error Handling for Firestore Permissions
