@@ -18,54 +18,47 @@ import {
 import { db, auth } from './firebase';
 import { 
   Project, ProjectMember, Task, ShoppingItem, 
-  Poll, Vote, Message, Expense, Settlement, Notification, User 
+  Poll, Vote, Message, Expense, Settlement, Notification, User, Role
 } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to generate join code
 const generateJoinCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
+import imageCompression from 'browser-image-compression';
+
 // Storage Services (Using Base64 for reliability in this environment)
 export const uploadImage = async (file: File, path: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error("Failed to get canvas context"));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(dataUrl);
-      };
-      img.onerror = (error) => reject(error);
+  try {
+    const options = {
+      maxSizeMB: 0.5,
+      maxWidthOrHeight: 1200,
+      useWebWorker: true,
+      fileType: 'image/jpeg'
     };
-    reader.onerror = (error) => reject(error);
-  });
+    
+    const compressedFile = await imageCompression(file, options);
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(compressedFile);
+      reader.onload = (event) => {
+        resolve(event.target?.result as string);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  } catch (error) {
+    console.error('Image compression error:', error);
+    // Fallback to original file if compression fails
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        resolve(event.target?.result as string);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  }
 };
 
 // User Services
@@ -73,15 +66,19 @@ export const syncUser = async (user: User) => {
   await setDoc(doc(db, 'users', user.id), user, { merge: true });
 };
 
-export const generateInviteCode = async (adminId: string) => {
+export const generateInviteCode = async (adminId: string, type: 'permanent' | 'temporary' = 'permanent') => {
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   const id = uuidv4();
+  // The code itself expires in 1 week if not used
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; 
   await setDoc(doc(db, 'inviteCodes', id), {
     id,
     code,
     used: false,
     createdBy: adminId,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    expiresAt,
+    type
   });
   return code;
 };
@@ -95,10 +92,23 @@ export const validateAndUseInviteCode = async (userId: string, code: string) => 
   }
   
   const codeDoc = snapshot.docs[0];
+  const data = codeDoc.data();
+  
+  if (data.expiresAt && Date.now() > data.expiresAt) {
+    throw new Error('This invite code has expired.');
+  }
+  
   const batch = writeBatch(db);
   
   batch.update(doc(db, 'inviteCodes', codeDoc.id), { used: true, usedBy: userId });
-  batch.update(doc(db, 'users', userId), { isApproved: true });
+  
+  const userUpdate: any = { isApproved: true };
+  if (data.type === 'temporary') {
+    // Trial lasts 1 week from the moment they use the code
+    userUpdate.trialExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  }
+  
+  batch.update(doc(db, 'users', userId), userUpdate);
   
   await batch.commit();
 };
@@ -193,11 +203,44 @@ export const removeMember = async (projectId: string, userId: string) => {
   await deleteDoc(doc(db, `projects/${projectId}/members`, userId));
 };
 
+export const updateMemberRole = async (projectId: string, userId: string, role: Role) => {
+  await updateDoc(doc(db, `projects/${projectId}/members`, userId), { role });
+};
+
 export const leaveProject = async (projectId: string, userId: string, isLeader: boolean) => {
   if (isLeader) {
-    // In a real app, we might want to delete everything, but for now let's just archive or delete the project doc
-    // Deleting subcollections requires a cloud function or recursive client-side delete
-    await deleteDoc(doc(db, 'projects', projectId));
+    const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
+    const otherMembers = membersSnap.docs.filter(doc => doc.id !== userId);
+    
+    if (otherMembers.length === 0) {
+      // No one else left, delete the project
+      await deleteDoc(doc(db, 'projects', projectId));
+      await deleteDoc(doc(db, `projects/${projectId}/members`, userId));
+    } else {
+      // Find co-leaders
+      const coLeaders = otherMembers.filter(doc => doc.data().role === 'co-leader');
+      let newLeaderId = '';
+      
+      if (coLeaders.length > 0) {
+        // Pick a random co-leader
+        const randomIndex = Math.floor(Math.random() * coLeaders.length);
+        newLeaderId = coLeaders[randomIndex].id;
+      } else {
+        // Pick a random member
+        const randomIndex = Math.floor(Math.random() * otherMembers.length);
+        newLeaderId = otherMembers[randomIndex].id;
+      }
+      
+      const batch = writeBatch(db);
+      // Update the new leader's role
+      batch.update(doc(db, `projects/${projectId}/members`, newLeaderId), { role: 'leader' });
+      // Update the project's leaderId
+      batch.update(doc(db, 'projects', projectId), { leaderId: newLeaderId });
+      // Remove the old leader
+      batch.delete(doc(db, `projects/${projectId}/members`, userId));
+      
+      await batch.commit();
+    }
   } else {
     await deleteDoc(doc(db, `projects/${projectId}/members`, userId));
   }
@@ -208,18 +251,27 @@ export const addTask = async (task: Omit<Task, 'id' | 'completed'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `projects/${task.projectId}/tasks`, id), { ...task, id, completed: false });
 
-  const membersSnap = await getDocs(collection(db, `projects/${task.projectId}/members`));
   const projectDoc = await getDoc(doc(db, 'projects', task.projectId));
   const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
   
-  const notificationPromises = membersSnap.docs
-    .filter(doc => doc.id !== auth.currentUser?.uid)
-    .map(memberDoc => addNotification(memberDoc.id, {
-      title: 'New Task',
-      description: `A new task "${task.description}" was added in "${projectTitle}"`,
+  const creatorId = auth.currentUser?.uid;
+  let creatorName = 'Someone';
+  if (creatorId) {
+    const userDoc = await getDoc(doc(db, 'users', creatorId));
+    if (userDoc.exists()) {
+      creatorName = (userDoc.data() as User).name;
+    }
+  }
+  
+  const notificationPromises = task.assignedTo.map(userId => {
+    return addNotification(userId, {
+      title: 'Task Assigned',
+      description: `${creatorName} assigned you a task: "${task.description}" in "${projectTitle}"`,
       type: 'task',
       projectId: task.projectId
-    }));
+    });
+  });
+  
   await Promise.all(notificationPromises);
 };
 
@@ -326,53 +378,59 @@ export const votePoll = async (projectId: string, pollId: string, userId: string
 };
 
 export const closePoll = async (projectId: string, pollId: string) => {
-  await updateDoc(doc(db, `projects/${projectId}/polls`, pollId), { closed: true });
+  try {
+    await updateDoc(doc(db, `projects/${projectId}/polls`, pollId), { closed: true });
 
-  // Get poll data and votes to announce results
-  const pollDoc = await getDoc(doc(db, `projects/${projectId}/polls`, pollId));
-  if (!pollDoc.exists()) return;
-  
-  const poll = pollDoc.data() as Poll;
-  const votesSnap = await getDocs(query(collection(db, `projects/${projectId}/votes`), where('pollId', '==', pollId)));
-  const pollVotes = votesSnap.docs.map(d => d.data() as Vote);
-  
-  // Calculate results
-  const counts: Record<number, number> = {};
-  poll.options.forEach((_, i) => counts[i] = 0);
-  pollVotes.forEach(v => {
-    counts[v.optionIndex] = (counts[v.optionIndex] || 0) + 1;
-  });
+    // Get poll data and votes to announce results
+    const pollDoc = await getDoc(doc(db, `projects/${projectId}/polls`, pollId));
+    if (!pollDoc.exists()) return;
+    
+    const poll = pollDoc.data() as Poll;
+    const votesSnap = await getDocs(query(collection(db, `projects/${projectId}/votes`), where('pollId', '==', pollId)));
+    const pollVotes = votesSnap.docs.map(d => d.data() as Vote);
+    
+    // Calculate results
+    const counts: Record<number, number> = {};
+    const options = poll.options || [];
+    options.forEach((_, i) => counts[i] = 0);
+    pollVotes.forEach(v => {
+      counts[v.optionIndex] = (counts[v.optionIndex] || 0) + 1;
+    });
 
-  let maxVotes = -1;
-  let winners: string[] = [];
-  
-  Object.entries(counts).forEach(([index, count]) => {
-    if (count > maxVotes) {
-      maxVotes = count;
-      winners = [poll.options[parseInt(index)]];
-    } else if (count === maxVotes && maxVotes > 0) {
-      winners.push(poll.options[parseInt(index)]);
-    }
-  });
+    let maxVotes = -1;
+    let winners: string[] = [];
+    
+    Object.entries(counts).forEach(([index, count]) => {
+      if (count > maxVotes) {
+        maxVotes = count;
+        winners = [options[parseInt(index)]];
+      } else if (count === maxVotes && maxVotes > 0) {
+        winners.push(options[parseInt(index)]);
+      }
+    });
 
-  const resultText = maxVotes <= 0 
-    ? "No votes were cast." 
-    : `Winner: ${winners.join(", ")} (${maxVotes} votes)`;
+    const resultText = maxVotes <= 0 
+      ? "No votes were cast." 
+      : `Winner: ${winners.join(", ")} (${maxVotes} votes)`;
 
-  const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
-  const projectDoc = await getDoc(doc(db, 'projects', projectId));
-  const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
+    const membersSnap = await getDocs(collection(db, `projects/${projectId}/members`));
+    const projectDoc = await getDoc(doc(db, 'projects', projectId));
+    const projectTitle = projectDoc.exists() ? (projectDoc.data() as Project).title : 'a project';
 
-  const notificationPromises = membersSnap.docs.map(memberDoc => 
-    addNotification(memberDoc.id, {
-      title: 'Poll Results',
-      description: `The poll "${poll.question}" in "${projectTitle}" has ended. ${resultText}`,
-      type: 'poll',
-      projectId
-    })
-  );
+    const notificationPromises = membersSnap.docs.map(memberDoc => 
+      addNotification(memberDoc.id, {
+        title: 'Poll Results',
+        description: `The poll "${poll.question || 'Untitled'}" in "${projectTitle}" has ended. ${resultText}`,
+        type: 'poll',
+        projectId
+      })
+    );
 
-  await Promise.all(notificationPromises);
+    await Promise.all(notificationPromises);
+  } catch (error) {
+    console.error("Error in closePoll:", error);
+    throw error;
+  }
 };
 
 // Chat Services
@@ -452,6 +510,24 @@ export const markNotificationRead = async (userId: string, notificationId: strin
 export const addNotification = async (userId: string, notification: Omit<Notification, 'id' | 'read' | 'timestamp'>) => {
   const id = uuidv4();
   await setDoc(doc(db, `users/${userId}/notifications`, id), { ...notification, id, read: false, timestamp: Date.now(), userId });
+};
+
+// Admin Dashboard Services
+export const getAllUsers = async () => {
+  const snapshot = await getDocs(collection(db, 'users'));
+  return snapshot.docs.map(doc => doc.data() as User);
+};
+
+export const updateUserApproval = async (userId: string, isApproved: boolean) => {
+  await updateDoc(doc(db, 'users', userId), { isApproved });
+};
+
+export const updateUserRole = async (userId: string, role: 'admin' | 'user') => {
+  await updateDoc(doc(db, 'users', userId), { role });
+};
+
+export const deleteUser = async (userId: string) => {
+  await deleteDoc(doc(db, 'users', userId));
 };
 
 // Error Handling for Firestore Permissions

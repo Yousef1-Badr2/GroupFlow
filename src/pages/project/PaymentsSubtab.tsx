@@ -1,21 +1,50 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { DollarSign, ArrowRightLeft, CheckCircle2, X, Trash2 } from "lucide-react";
 import { useStore } from "../../store";
-import { Project, Role } from "../../types";
+import { Project, Role, Expense, Settlement, ProjectMember } from "../../types";
 import { format } from "date-fns";
 import * as firestoreService from "../../lib/firestoreService";
+import { collection, query, onSnapshot } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function PaymentsSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { expenses, settlements, members, currentUser, users } = useStore();
+  const { currentUser, users } = useStore();
+
+  const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
+  const [localSettlements, setLocalSettlements] = useState<Settlement[]>([]);
+  const [localMembers, setLocalMembers] = useState<ProjectMember[]>([]);
+
+  useEffect(() => {
+    const expensesQ = query(collection(db, `projects/${project.id}/expenses`));
+    const unsubscribeExpenses = onSnapshot(expensesQ, (snapshot) => {
+      setLocalExpenses(snapshot.docs.map(d => d.data() as Expense));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/expenses`));
+
+    const settlementsQ = query(collection(db, `projects/${project.id}/settlements`));
+    const unsubscribeSettlements = onSnapshot(settlementsQ, (snapshot) => {
+      setLocalSettlements(snapshot.docs.map(d => d.data() as Settlement));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/settlements`));
+
+    const membersQ = query(collection(db, `projects/${project.id}/members`));
+    const unsubscribeMembers = onSnapshot(membersQ, (snapshot) => {
+      setLocalMembers(snapshot.docs.map(d => d.data() as ProjectMember));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/members`));
+
+    return () => {
+      unsubscribeExpenses();
+      unsubscribeSettlements();
+      unsubscribeMembers();
+    };
+  }, [project.id]);
 
   const [settleDialog, setSettleDialog] = useState<{ from: string; to: string; amount: number; maxAmount: number } | null>(null);
   const [settleAmount, setSettleAmount] = useState("");
 
-  const projectExpenses = expenses.filter(e => e.projectId === project.id);
-  const projectSettlements = settlements.filter(s => s.projectId === project.id);
-  const projectMembers = members.filter(m => m.projectId === project.id);
+  const projectExpenses = localExpenses;
+  const projectSettlements = localSettlements;
+  const projectMembers = localMembers;
 
   // Calculate balances
   const balances: Record<string, number> = {};

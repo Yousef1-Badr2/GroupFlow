@@ -1,27 +1,82 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Send, Image as ImageIcon, Smile, X, Loader2 } from "lucide-react";
+import { Send, Image as ImageIcon, Smile, X, Loader2, ArrowUpCircle } from "lucide-react";
 import { useStore } from "../../store";
-import { Project, Role } from "../../types";
+import { Project, Role, Message } from "../../types";
 import { format } from "date-fns";
 import * as firestoreService from "../../lib/firestoreService";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import { collection, query, onSnapshot, orderBy, limitToLast } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function ChatSubtab() {
   const { project } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { messages, currentUser, users, theme } = useStore();
+  const { currentUser, users, theme } = useStore();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [limitCount, setLimitCount] = useState(25);
+  const [hasMore, setHasMore] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const lastScrollHeight = useRef<number>(0);
 
   const emojiTheme = theme === 'dark' ? Theme.DARK : theme === 'light' ? Theme.LIGHT : Theme.AUTO;
 
-  const projectMessages = messages.filter(m => m.projectId === project.id).sort((a, b) => a.timestamp - b.timestamp);
+  useEffect(() => {
+    const q = query(
+      collection(db, `projects/${project.id}/messages`), 
+      orderBy("timestamp", "asc"),
+      limitToLast(limitCount)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newMessages = snapshot.docs.map(d => d.data() as Message);
+      
+      // If we got fewer messages than the limit, we've reached the beginning
+      if (newMessages.length < limitCount) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
+
+      setMessages(newMessages);
+      
+      if (isInitialLoad) {
+        setTimeout(scrollToBottom, 100);
+        setIsInitialLoad(false);
+      } else if (scrollContainerRef.current) {
+        // Maintain scroll position when loading more
+        const newScrollHeight = scrollContainerRef.current.scrollHeight;
+        const heightDiff = newScrollHeight - lastScrollHeight.current;
+        if (heightDiff > 0 && scrollContainerRef.current.scrollTop < 100) {
+          scrollContainerRef.current.scrollTop += heightDiff;
+        }
+      }
+      
+      lastScrollHeight.current = scrollContainerRef.current?.scrollHeight || 0;
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/messages`));
+    
+    return unsubscribe;
+  }, [project.id, limitCount]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight } = scrollContainerRef.current;
+      lastScrollHeight.current = scrollHeight;
+      
+      if (scrollTop === 0 && hasMore && !isInitialLoad) {
+        setLimitCount(prev => prev + 25);
+      }
+    }
+  }, [hasMore, isInitialLoad]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,7 +84,7 @@ export default function ChatSubtab() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [projectMessages]);
+  }, [messages]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -103,15 +158,28 @@ export default function ChatSubtab() {
 
   return (
     <div className="h-full flex flex-col bg-primary-50/30 dark:bg-[#121212] relative">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
-        {projectMessages.length === 0 ? (
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 pb-32"
+      >
+        {hasMore && messages.length >= limitCount && (
+          <div className="flex justify-center py-2">
+            <div className="flex items-center text-xs text-slate-400 bg-white dark:bg-[#1E1E1E] px-3 py-1 rounded-full border border-primary-100 dark:border-primary-900/30">
+              <ArrowUpCircle size={14} className="mr-1 animate-bounce" />
+              Scroll up to load more
+            </div>
+          </div>
+        )}
+
+        {messages.length === 0 ? (
           <div className="text-center py-10 text-slate-500">
             <p>No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          projectMessages.map((msg, index) => {
+          messages.map((msg, index) => {
             const isMe = msg.userId === currentUser?.id;
-            const showName = index === 0 || projectMessages[index - 1].userId !== msg.userId;
+            const showName = index === 0 || messages[index - 1].userId !== msg.userId;
 
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>

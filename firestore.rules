@@ -6,7 +6,10 @@ service cloud.firestore {
     // ===============================================================
     //
     // Collection: users
-    // Fields: id, name, email, photoURL, phone, bio
+    // Fields: id, name, email, photoURL, phone, bio, isApproved, role, trialExpiresAt
+    //
+    // Collection: inviteCodes
+    // Fields: id, code, used, usedBy, createdBy, createdAt, expiresAt, type
     //
     // Collection: projects
     // Fields: id, title, joinCode, leaderId, isArchived, createdAt, status
@@ -53,7 +56,8 @@ service cloud.firestore {
              (!('email' in data) || data.email is string) &&
              (!('photoURL' in data) || data.photoURL is string) &&
              (!('isApproved' in data) || data.isApproved is bool) &&
-             (!('role' in data) || data.role in ['admin', 'user']);
+             (!('role' in data) || data.role in ['admin', 'user']) &&
+             (!('trialExpiresAt' in data) || data.trialExpiresAt is number);
     }
 
     function isValidProject(data) {
@@ -65,7 +69,16 @@ service cloud.firestore {
     function isValidMember(data) {
       return data.keys().hasAll(['projectId', 'userId', 'role']) &&
              data.projectId is string && data.userId is string &&
-             data.role in ['leader', 'member'];
+             data.role in ['leader', 'co-leader', 'member'];
+    }
+
+    function isValidInviteCode(data) {
+      return data.keys().hasAll(['id', 'code', 'used', 'createdBy', 'createdAt', 'type']) &&
+             data.id is string && data.code is string && data.used is bool &&
+             data.createdBy is string && data.createdAt is number &&
+             data.type in ['permanent', 'temporary'] &&
+             (!('expiresAt' in data) || data.expiresAt is number) &&
+             (!('usedBy' in data) || data.usedBy is string);
     }
 
     // ===============================================================
@@ -74,11 +87,13 @@ service cloud.firestore {
 
     match /inviteCodes/{codeId} {
       allow read: if isAuthenticated();
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin() && isValidInviteCode(request.resource.data);
+      allow delete: if isAdmin();
       allow update: if (isAuthenticated() && 
                     resource.data.used == false && 
                     request.resource.data.used == true &&
-                    request.resource.data.usedBy == request.auth.uid) || isAdmin();
+                    request.resource.data.usedBy == request.auth.uid &&
+                    isValidInviteCode(request.resource.data)) || isAdmin();
     }
 
     match /users/{userId} {
@@ -97,7 +112,8 @@ service cloud.firestore {
       match /members/{memberId} {
         allow read: if isProjectMember(projectId);
         allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidMember(request.resource.data);
-        allow update, delete: if isProjectLeader(projectId) || isOwner(memberId) || isAdmin();
+        allow update: if isProjectLeader(projectId) || isAdmin() || (isOwner(memberId) && request.resource.data.role == resource.data.role);
+        allow delete: if isProjectLeader(projectId) || isOwner(memberId) || isAdmin();
       }
 
       match /tasks/{taskId} {

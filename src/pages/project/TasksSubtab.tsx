@@ -1,17 +1,76 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Plus, CheckSquare, Clock } from "lucide-react";
+import { Plus, CheckSquare, Clock, ArrowDownCircle } from "lucide-react";
 import { useStore } from "../../store";
-import { Project, Role } from "../../types";
+import { Project, Role, Task } from "../../types";
 import { format, isPast, isToday, isTomorrow } from "date-fns";
 import * as firestoreService from "../../lib/firestoreService";
+import { collection, query, onSnapshot, orderBy, limit, startAfter, getDocs } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function TasksSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { tasks, members, currentUser, users } = useStore();
+  const { members, currentUser, users } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const limitCount = 20;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const projectTasks = tasks.filter(t => t.projectId === project.id).sort((a, b) => a.dueDate - b.dueDate);
+  useEffect(() => {
+    const q = query(
+      collection(db, `projects/${project.id}/tasks`),
+      orderBy('dueDate', 'asc'),
+      limit(limitCount)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tasks = snapshot.docs.map(d => d.data() as Task);
+      setLocalTasks(tasks);
+      setHasMore(snapshot.docs.length === limitCount);
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/tasks`));
+    
+    return unsubscribe;
+  }, [project.id]);
+
+  const loadMoreTasks = async () => {
+    if (loadingMore || !hasMore || localTasks.length === 0) return;
+    
+    setLoadingMore(true);
+    try {
+      const lastTask = localTasks[localTasks.length - 1];
+      const q = query(
+        collection(db, `projects/${project.id}/tasks`),
+        orderBy('dueDate', 'asc'),
+        startAfter(lastTask.dueDate),
+        limit(limitCount)
+      );
+      
+      const snapshot = await getDocs(q);
+      const newTasks = snapshot.docs.map(d => d.data() as Task);
+      
+      if (newTasks.length > 0) {
+        setLocalTasks(prev => [...prev, ...newTasks]);
+      }
+      setHasMore(newTasks.length === limitCount);
+    } catch (error) {
+      console.error("Error loading more tasks:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    if (scrollHeight - scrollTop <= clientHeight + 100) {
+      loadMoreTasks();
+    }
+  }, [loadMoreTasks]);
+
+  const projectTasks = localTasks; // Already sorted by query
   const projectMembers = members.filter(m => m.projectId === project.id);
 
   const getUserName = (userId: string) => {
@@ -42,67 +101,88 @@ export default function TasksSubtab() {
 
   return (
     <div className="h-full flex flex-col p-4 relative">
-      <div className="flex-1 overflow-y-auto space-y-3 pb-20">
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto space-y-3 pb-20"
+      >
         {projectTasks.length === 0 ? (
           <div className="text-center py-10 text-slate-500 flex flex-col items-center">
             <CheckSquare size={48} className="text-slate-300 mb-4" />
             <p>No tasks for this project yet.</p>
           </div>
         ) : (
-          projectTasks.map((task) => {
-            const isOverdue = !task.completed && isPast(task.dueDate) && !isToday(task.dueDate);
-            const isAssignedToMe = currentUser && task.assignedTo.includes(currentUser.id);
+          <>
+            {projectTasks.map((task) => {
+              const isOverdue = !task.completed && isPast(task.dueDate) && !isToday(task.dueDate);
+              const isAssignedToMe = currentUser && task.assignedTo.includes(currentUser.id);
 
-            return (
-              <div 
-                key={task.id} 
-                className={`bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 flex items-start gap-3 transition-opacity ${task.completed ? 'opacity-60' : ''}`}
-              >
-                <button 
-                  onClick={() => !project.isArchived && handleToggleTask(task.id, task.completed)}
-                  disabled={project.isArchived}
-                  className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
-                    task.completed 
-                      ? 'bg-primary-600 border-primary-600 text-white' 
-                      : 'border-slate-300 dark:border-slate-600 hover:border-primary-600'
-                  }`}
+              return (
+                <div 
+                  key={task.id} 
+                  className={`bg-white dark:bg-[#1E1E1E] p-4 rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 flex items-start gap-3 transition-opacity ${task.completed ? 'opacity-60' : ''}`}
                 >
-                  {task.completed && <CheckSquare size={16} />}
-                </button>
-                
-                <div className="flex-1 min-w-0">
-                  <p className={`text-base font-medium ${task.completed ? 'line-through text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
-                    {task.description}
-                  </p>
+                  <button 
+                    onClick={() => !project.isArchived && handleToggleTask(task.id, task.completed)}
+                    disabled={project.isArchived}
+                    className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+                      task.completed 
+                        ? 'bg-primary-600 border-primary-600 text-white' 
+                        : 'border-slate-300 dark:border-slate-600 hover:border-primary-600'
+                    }`}
+                  >
+                    {task.completed && <CheckSquare size={16} />}
+                  </button>
                   
-                  <div className="flex items-center mt-2 space-x-3 flex-wrap gap-y-2">
-                    <div className={`flex items-center text-xs font-medium ${isOverdue ? 'text-primary-500' : 'text-slate-500 dark:text-slate-400'}`}>
-                      <Clock size={12} className="mr-1" />
-                      {formatDueDate(task.dueDate)}
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-base font-medium ${task.completed ? 'line-through text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
+                      {task.description}
+                    </p>
                     
-                    {task.assignedTo.length > 0 && !task.completed && (
-                      <div className="flex gap-1">
-                        {task.assignedTo.map(userId => {
-                          return (
-                            <span key={userId} className="text-[10px] uppercase tracking-wider bg-primary-100 text-primary-800 dark:bg-primary-950/40 dark:text-primary-500 px-2 py-0.5 rounded-full font-bold">
-                              {getUserName(userId)}
-                            </span>
-                          );
-                        })}
+                    <div className="flex items-center mt-2 space-x-3 flex-wrap gap-y-2">
+                      <div className={`flex items-center text-xs font-medium ${isOverdue ? 'text-primary-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                        <Clock size={12} className="mr-1" />
+                        {formatDueDate(task.dueDate)}
                       </div>
-                    )}
+                      
+                      {task.assignedTo.length > 0 && !task.completed && (
+                        <div className="flex gap-1">
+                          {task.assignedTo.map(userId => {
+                            return (
+                              <span key={userId} className="text-[10px] uppercase tracking-wider bg-primary-100 text-primary-800 dark:bg-primary-950/40 dark:text-primary-500 px-2 py-0.5 rounded-full font-bold">
+                                {getUserName(userId)}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
 
-                    {task.completed && task.completedBy && (
-                      <span className="text-[10px] uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
-                        Done by {getUserName(task.completedBy)}
-                      </span>
-                    )}
+                      {task.completed && task.completedBy && (
+                        <span className="text-[10px] uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                          Done by {getUserName(task.completedBy)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+            
+            {hasMore && (
+              <div className="flex justify-center py-4">
+                <div className="flex items-center text-xs text-slate-400 bg-white dark:bg-[#1E1E1E] px-3 py-1 rounded-full border border-primary-100 dark:border-primary-900/30">
+                  <ArrowDownCircle size={14} className="mr-1 animate-bounce" />
+                  Scroll down to load more
+                </div>
               </div>
-            );
-          })
+            )}
+            
+            {loadingMore && (
+              <div className="flex justify-center py-2">
+                <div className="w-5 h-5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -180,7 +260,7 @@ function AddTaskModal({ projectId, members, userRole, currentUser, onClose }: { 
             />
           </div>
 
-          {userRole === 'leader' && (
+          {(userRole === 'leader' || userRole === 'co-leader') && (
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assign To</label>
               <div className="space-y-2 max-h-32 overflow-y-auto bg-primary-50/50 dark:bg-[#121212] p-3 rounded-xl border border-primary-100 dark:border-primary-900/30">

@@ -1,16 +1,40 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Plus, BarChart2, CheckCircle2 } from "lucide-react";
 import { useStore } from "../../store";
-import { Project, Role } from "../../types";
+import { Project, Role, Poll, Vote } from "../../types";
 import * as firestoreService from "../../lib/firestoreService";
+import { collection, query, onSnapshot } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function PollsSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { polls, votes, currentUser } = useStore();
+  const { currentUser } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [localPolls, setLocalPolls] = useState<Poll[]>([]);
+  const [localVotes, setLocalVotes] = useState<Vote[]>([]);
 
-  const projectPolls = polls.filter(p => p.projectId === project.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  useEffect(() => {
+    const pollsQ = query(collection(db, `projects/${project.id}/polls`));
+    const unsubscribePolls = onSnapshot(pollsQ, (snapshot) => {
+      setLocalPolls(snapshot.docs.map(d => d.data() as Poll));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/polls`));
+
+    const votesQ = query(collection(db, `projects/${project.id}/votes`));
+    const unsubscribeVotes = onSnapshot(votesQ, (snapshot) => {
+      setLocalVotes(snapshot.docs.map(d => d.data() as Vote));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/votes`));
+
+    return () => {
+      unsubscribePolls();
+      unsubscribeVotes();
+    };
+  }, [project.id]);
+
+  const polls = localPolls;
+  const votes = localVotes;
+
+  const projectPolls = polls.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const handleVote = async (pollId: string, optionIndex: number, allowMultiple: boolean) => {
     if (!currentUser) return;

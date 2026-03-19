@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, onSnapshot, collectionGroup, documentId, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, collectionGroup, documentId, doc, getDoc, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { useStore } from '../store';
 import * as firestoreService from '../lib/firestoreService';
@@ -8,14 +8,20 @@ import {
   Project, ProjectMember, Task, ShoppingItem, 
   Poll, Vote, Message, Expense, Settlement, Notification, User 
 } from '../types';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function FirebaseSync() {
+  const navigate = useNavigate();
   const { 
     currentUser, setCurrentUser, setAuthReady,
     setProjects, setMembers, setTasks, setShoppingItems, 
     setPolls, setVotes, setMessages, setExpenses, 
     setSettlements, setNotifications, setUsers 
   } = useStore();
+
+  const lastNotificationId = useRef<string | null>(null);
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     let unsubscribeUser: (() => void) | null = null;
@@ -38,6 +44,10 @@ export default function FirebaseSync() {
             if (isAdmin) {
               userData.isApproved = true;
               userData.role = 'admin';
+            } else if (userData.trialExpiresAt && Date.now() > userData.trialExpiresAt && userData.isApproved) {
+              // Trial expired
+              userData.isApproved = false;
+              await firestoreService.syncUser(userData);
             }
           } else {
             userData = {
@@ -101,10 +111,35 @@ export default function FirebaseSync() {
     // Listen to projects where user is a member
     const membersQuery = query(collectionGroup(db, 'members'), where('userId', '==', currentUser.id));
     
+    let unsubscribeAllMembers: (() => void) | null = null;
+    let unsubscribeUsers: (() => void) | null = null;
+    let unsubscribeProjects: (() => void) | null = null;
+    let unsubscribeTasks: (() => void) | null = null;
+    let unsubscribeShopping: (() => void) | null = null;
+    let unsubscribePolls: (() => void) | null = null;
+    let unsubscribeVotes: (() => void) | null = null;
+    let unsubscribeMessages: (() => void) | null = null;
+    let unsubscribeExpenses: (() => void) | null = null;
+    let unsubscribeSettlements: (() => void) | null = null;
+
+    const cleanupProjectListeners = () => {
+      if (unsubscribeAllMembers) unsubscribeAllMembers();
+      if (unsubscribeUsers) unsubscribeUsers();
+      if (unsubscribeProjects) unsubscribeProjects();
+      if (unsubscribeTasks) unsubscribeTasks();
+      if (unsubscribeShopping) unsubscribeShopping();
+      if (unsubscribePolls) unsubscribePolls();
+      if (unsubscribeVotes) unsubscribeVotes();
+      if (unsubscribeExpenses) unsubscribeExpenses();
+      if (unsubscribeSettlements) unsubscribeSettlements();
+    };
+
     const unsubscribeMembers = onSnapshot(membersQuery, (snapshot) => {
       const myMemberships = snapshot.docs.map(doc => doc.data() as ProjectMember);
       const projectIds = myMemberships.map(m => m.projectId);
       
+      cleanupProjectListeners();
+
       if (projectIds.length === 0) {
         setMembers([]);
         setProjects([]);
@@ -112,75 +147,159 @@ export default function FirebaseSync() {
         return;
       }
 
-      // Listen to ALL members of these projects
-      let unsubscribeUsers: (() => void) | null = null;
-      const allMembersQuery = query(collectionGroup(db, 'members'), where('projectId', 'in', projectIds));
-      const unsubscribeAllMembers = onSnapshot(allMembersQuery, (allSnapshot) => {
-        const allMembersList = allSnapshot.docs.map(doc => doc.data() as ProjectMember);
-        setMembers(allMembersList);
-
-        // Fetch user details for all members
-        const userIds = Array.from(new Set(allMembersList.map(m => m.userId)));
-        if (userIds.length > 0) {
-          if (unsubscribeUsers) unsubscribeUsers();
-          // Use documentId() for more reliable fetching
-          const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', userIds));
-          unsubscribeUsers = onSnapshot(usersQuery, (userSnapshot) => {
-            setUsers(userSnapshot.docs.map(d => d.data() as User));
-          }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'users'));
+      // Helper function to chunk arrays
+      const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+        const chunked: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) {
+          chunked.push(arr.slice(i, i + size));
         }
-      }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'members_group'));
-
-      // Listen to projects
-      const projectsQuery = query(collection(db, 'projects'), where('id', 'in', projectIds));
-      const unsubscribeProjects = onSnapshot(projectsQuery, (projSnapshot) => {
-        setProjects(projSnapshot.docs.map(doc => doc.data() as Project));
-      }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'projects'));
-
-      // Listen to subcollections for each project
-      const tasksQuery = query(collectionGroup(db, 'tasks'), where('projectId', 'in', projectIds));
-      const unsubscribeTasks = onSnapshot(tasksQuery, (s) => setTasks(s.docs.map(d => d.data() as Task)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'tasks_group'));
-
-      const shoppingQuery = query(collectionGroup(db, 'shoppingItems'), where('projectId', 'in', projectIds));
-      const unsubscribeShopping = onSnapshot(shoppingQuery, (s) => setShoppingItems(s.docs.map(d => d.data() as ShoppingItem)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'shopping_group'));
-
-      const pollsQuery = query(collectionGroup(db, 'polls'), where('projectId', 'in', projectIds));
-      const unsubscribePolls = onSnapshot(pollsQuery, (s) => setPolls(s.docs.map(d => d.data() as Poll)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'polls_group'));
-
-      const votesQuery = query(collectionGroup(db, 'votes'), where('projectId', 'in', projectIds));
-      const unsubscribeVotes = onSnapshot(votesQuery, (s) => setVotes(s.docs.map(d => d.data() as Vote)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'votes_group'));
-
-      const messagesQuery = query(collectionGroup(db, 'messages'), where('projectId', 'in', projectIds));
-      const unsubscribeMessages = onSnapshot(messagesQuery, (s) => setMessages(s.docs.map(d => d.data() as Message)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'messages_group'));
-
-      const expensesQuery = query(collectionGroup(db, 'expenses'), where('projectId', 'in', projectIds));
-      const unsubscribeExpenses = onSnapshot(expensesQuery, (s) => setExpenses(s.docs.map(d => d.data() as Expense)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'expenses_group'));
-
-      const settlementsQuery = query(collectionGroup(db, 'settlements'), where('projectId', 'in', projectIds));
-      const unsubscribeSettlements = onSnapshot(settlementsQuery, (s) => setSettlements(s.docs.map(d => d.data() as Settlement)), (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'settlements_group'));
-
-      return () => {
-        unsubscribeAllMembers();
-        if (unsubscribeUsers) unsubscribeUsers();
-        unsubscribeProjects();
-        unsubscribeTasks();
-        unsubscribeShopping();
-        unsubscribePolls();
-        unsubscribeVotes();
-        unsubscribeMessages();
-        unsubscribeExpenses();
-        unsubscribeSettlements();
+        return chunked;
       };
+
+      const projectChunks = chunkArray(projectIds, 30);
+      
+      const allMembersUnsubscribes: (() => void)[] = [];
+      const projectsUnsubscribes: (() => void)[] = [];
+      const tasksUnsubscribes: (() => void)[] = [];
+      const shoppingUnsubscribes: (() => void)[] = [];
+      const pollsUnsubscribes: (() => void)[] = [];
+      const votesUnsubscribes: (() => void)[] = [];
+      const expensesUnsubscribes: (() => void)[] = [];
+      const settlementsUnsubscribes: (() => void)[] = [];
+      
+      let allMembersData: Record<string, ProjectMember[]> = {};
+      let projectsData: Record<string, Project[]> = {};
+      let tasksData: Record<string, Task[]> = {};
+      let shoppingData: Record<string, ShoppingItem[]> = {};
+      let pollsData: Record<string, Poll[]> = {};
+      let votesData: Record<string, Vote[]> = {};
+      let expensesData: Record<string, Expense[]> = {};
+      let settlementsData: Record<string, Settlement[]> = {};
+
+      unsubscribeAllMembers = () => allMembersUnsubscribes.forEach(u => u());
+      unsubscribeProjects = () => projectsUnsubscribes.forEach(u => u());
+      unsubscribeTasks = () => tasksUnsubscribes.forEach(u => u());
+      unsubscribeShopping = () => shoppingUnsubscribes.forEach(u => u());
+      unsubscribePolls = () => pollsUnsubscribes.forEach(u => u());
+      unsubscribeVotes = () => votesUnsubscribes.forEach(u => u());
+      unsubscribeExpenses = () => expensesUnsubscribes.forEach(u => u());
+      unsubscribeSettlements = () => settlementsUnsubscribes.forEach(u => u());
+
+      projectChunks.forEach((chunk, index) => {
+        // Listen to ALL members of these projects
+        const allMembersQuery = query(collectionGroup(db, 'members'), where('projectId', 'in', chunk));
+        allMembersUnsubscribes.push(onSnapshot(allMembersQuery, (allSnapshot) => {
+          allMembersData[index] = allSnapshot.docs.map(doc => doc.data() as ProjectMember);
+          const allMembersList = Object.values(allMembersData).flat();
+          setMembers(allMembersList);
+
+          // Fetch user details for all members
+          const userIds = Array.from(new Set(allMembersList.map(m => m.userId)));
+          if (userIds.length > 0) {
+            if (unsubscribeUsers) unsubscribeUsers();
+            const userChunks = chunkArray(userIds, 30);
+            const usersUnsubscribes: (() => void)[] = [];
+            let usersData: Record<string, User[]> = {};
+            
+            userChunks.forEach((uChunk, uIndex) => {
+              const usersQuery = query(collection(db, 'users'), where(documentId(), 'in', uChunk));
+              usersUnsubscribes.push(onSnapshot(usersQuery, (userSnapshot) => {
+                usersData[uIndex] = userSnapshot.docs.map(d => d.data() as User);
+                setUsers(Object.values(usersData).flat());
+              }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'users')));
+            });
+            
+            unsubscribeUsers = () => usersUnsubscribes.forEach(u => u());
+          }
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'members_group')));
+
+        // Listen to projects
+        const projectsQuery = query(collection(db, 'projects'), where('id', 'in', chunk));
+        projectsUnsubscribes.push(onSnapshot(projectsQuery, (projSnapshot) => {
+          projectsData[index] = projSnapshot.docs.map(doc => doc.data() as Project);
+          setProjects(Object.values(projectsData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'projects')));
+
+        // Listen to subcollections for each project
+        const tasksQuery = query(collectionGroup(db, 'tasks'), where('projectId', 'in', chunk));
+        tasksUnsubscribes.push(onSnapshot(tasksQuery, (s) => {
+          tasksData[index] = s.docs.map(d => d.data() as Task);
+          setTasks(Object.values(tasksData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'tasks_group')));
+
+        const shoppingQuery = query(collectionGroup(db, 'shoppingItems'), where('projectId', 'in', chunk));
+        shoppingUnsubscribes.push(onSnapshot(shoppingQuery, (s) => {
+          shoppingData[index] = s.docs.map(d => d.data() as ShoppingItem);
+          setShoppingItems(Object.values(shoppingData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'shopping_group')));
+
+        const pollsQuery = query(collectionGroup(db, 'polls'), where('projectId', 'in', chunk));
+        pollsUnsubscribes.push(onSnapshot(pollsQuery, (s) => {
+          pollsData[index] = s.docs.map(d => d.data() as Poll);
+          setPolls(Object.values(pollsData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'polls_group')));
+
+        const votesQuery = query(collectionGroup(db, 'votes'), where('projectId', 'in', chunk));
+        votesUnsubscribes.push(onSnapshot(votesQuery, (s) => {
+          votesData[index] = s.docs.map(d => d.data() as Vote);
+          setVotes(Object.values(votesData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'votes_group')));
+
+        const expensesQuery = query(collectionGroup(db, 'expenses'), where('projectId', 'in', chunk));
+        expensesUnsubscribes.push(onSnapshot(expensesQuery, (s) => {
+          expensesData[index] = s.docs.map(d => d.data() as Expense);
+          setExpenses(Object.values(expensesData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'expenses_group')));
+
+        const settlementsQuery = query(collectionGroup(db, 'settlements'), where('projectId', 'in', chunk));
+        settlementsUnsubscribes.push(onSnapshot(settlementsQuery, (s) => {
+          settlementsData[index] = s.docs.map(d => d.data() as Settlement);
+          setSettlements(Object.values(settlementsData).flat());
+        }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'settlements_group')));
+      });
+
     }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, 'my_memberships'));
 
     // Listen to user notifications
-    const notificationsQuery = query(collection(db, `users/${currentUser.id}/notifications`));
+    const notificationsQuery = query(
+      collection(db, `users/${currentUser.id}/notifications`),
+      orderBy('timestamp', 'desc')
+    );
     const unsubscribeNotifications = onSnapshot(notificationsQuery, (s) => {
-      setNotifications(s.docs.map(d => d.data() as Notification));
+      const notifications = s.docs.map(d => d.data() as Notification);
+      setNotifications(notifications);
+
+      // Trigger toasts for new notifications
+      if (notifications.length > 0) {
+        const latest = notifications[0];
+        if (!isFirstLoad.current && latest.id !== lastNotificationId.current && !latest.read) {
+          toast(latest.title, {
+            description: latest.description,
+            action: {
+              label: 'View',
+              onClick: () => {
+                if (latest.projectId) {
+                  const subtab = latest.type === 'message' ? 'chat' : 
+                                latest.type === 'task' ? 'tasks' :
+                                latest.type === 'poll' ? 'polls' :
+                                latest.type === 'payment' ? 'payments' : 'tasks';
+                  navigate(`/project/${latest.projectId}/${subtab}`);
+                } else {
+                  navigate('/notifications');
+                }
+                firestoreService.markNotificationRead(currentUser.id, latest.id);
+              }
+            }
+          });
+        }
+        lastNotificationId.current = latest.id;
+        isFirstLoad.current = false;
+      }
     }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `users/${currentUser.id}/notifications`));
 
     return () => {
       unsubscribeMembers();
+      cleanupProjectListeners();
       unsubscribeNotifications();
     };
   }, [currentUser, setProjects, setMembers, setTasks, setShoppingItems, setPolls, setVotes, setMessages, setExpenses, setSettlements, setNotifications]);

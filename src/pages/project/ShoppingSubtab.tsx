@@ -1,17 +1,27 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Plus, ShoppingCart, CheckCircle2, DollarSign, ImagePlus, X, Loader2, Trash2 } from "lucide-react";
 import { useStore } from "../../store";
-import { Project, Role } from "../../types";
+import { Project, Role, ShoppingItem } from "../../types";
 import * as firestoreService from "../../lib/firestoreService";
+import { collection, query, onSnapshot } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function ShoppingSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { shoppingItems } = useStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [purchasingItem, setPurchasingItem] = useState<string | null>(null);
+  const [localItems, setLocalItems] = useState<ShoppingItem[]>([]);
 
-  const items = shoppingItems.filter(i => i.projectId === project.id);
+  useEffect(() => {
+    const q = query(collection(db, `projects/${project.id}/shoppingItems`));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setLocalItems(snapshot.docs.map(d => d.data() as ShoppingItem));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/shoppingItems`));
+    return unsubscribe;
+  }, [project.id]);
+
+  const items = localItems;
   const pendingItems = items.filter(i => !i.purchased);
   const purchasedItems = items.filter(i => i.purchased);
 

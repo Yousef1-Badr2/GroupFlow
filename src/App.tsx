@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks';
 import Notifications from './pages/Notifications';
 import Account from './pages/Account';
 import Login from './pages/Login';
+import { Toaster } from 'sonner';
 import FirebaseSync from './components/FirebaseSync';
 
 import ProjectDetails from './pages/ProjectDetails';
@@ -19,6 +20,7 @@ import ChatSubtab from './pages/project/ChatSubtab';
 import PaymentsSubtab from './pages/project/PaymentsSubtab';
 
 import InviteCodeScreen from './pages/InviteCodeScreen';
+import AdminDashboard from './pages/AdminDashboard';
 
 export default function App() {
   const { theme, colorTheme, currentUser, isAuthReady } = useStore();
@@ -51,6 +53,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Toaster position="top-center" richColors />
       <FirebaseSync />
       {!isAuthReady ? (
         <div className="min-h-screen bg-primary-50 dark:bg-[#121212] flex items-center justify-center">
@@ -75,6 +78,7 @@ export default function App() {
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="account" element={<Account />} />
+                <Route path="admin" element={<AdminDashboard />} />
               </Route>
               
               <Route path="/project/:id" element={<ProjectDetails />}>

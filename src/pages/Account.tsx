@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { User, Settings, Moon, Sun, Monitor, LogOut, Save, KeyRound, Loader2, Copy, Check } from "lucide-react";
+import { User, Settings, Moon, Sun, Monitor, LogOut, Save, KeyRound, Loader2, Copy, Check, Shield } from "lucide-react";
 import { useStore } from "../store";
 import { auth } from "../lib/firebase";
 import { signOut } from "firebase/auth";
-import { generateInviteCode } from "../lib/firestoreService";
+import { useNavigate } from "react-router-dom";
+import * as firestoreService from "../lib/firestoreService";
 
 export default function Account() {
   const { currentUser, theme, setTheme, colorTheme, setColorTheme } = useStore();
+  const navigate = useNavigate();
   const [name, setName] = useState(currentUser?.name || "");
   const [phone, setPhone] = useState("");
   const [bio, setBio] = useState("");
@@ -17,16 +19,33 @@ export default function Account() {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [isGeneratingTempCode, setIsGeneratingTempCode] = useState(false);
+  const [generatedTempCode, setGeneratedTempCode] = useState<string | null>(null);
+  const [tempCopied, setTempCopied] = useState(false);
+
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     if (currentUser) {
       setName(currentUser.name);
     }
   }, [currentUser]);
 
-  const handleSave = () => {
-    // In this version, we're not updating user profile in Firestore yet
-    // but we could implement it in firestoreService
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!currentUser || !name.trim() || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await firestoreService.syncUser({
+        ...currentUser,
+        name: name.trim()
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -42,7 +61,7 @@ export default function Account() {
     setIsGeneratingCode(true);
     setCopied(false);
     try {
-      const code = await generateInviteCode(currentUser.id);
+      const code = await firestoreService.generateInviteCode(currentUser.id, 'permanent');
       setGeneratedCode(code);
     } catch (error) {
       console.error("Failed to generate code:", error);
@@ -51,9 +70,26 @@ export default function Account() {
     }
   };
 
-  const copyToClipboard = () => {
-    if (generatedCode) {
-      navigator.clipboard.writeText(generatedCode);
+  const handleGenerateTempCode = async () => {
+    if (!currentUser) return;
+    setIsGeneratingTempCode(true);
+    setTempCopied(false);
+    try {
+      const code = await firestoreService.generateInviteCode(currentUser.id, 'temporary');
+      setGeneratedTempCode(code);
+    } catch (error) {
+      console.error("Failed to generate temporary code:", error);
+    } finally {
+      setIsGeneratingTempCode(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, isTemp: boolean) => {
+    navigator.clipboard.writeText(text);
+    if (isTemp) {
+      setTempCopied(true);
+      setTimeout(() => setTempCopied(false), 2000);
+    } else {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -63,14 +99,25 @@ export default function Account() {
     <div className="p-4 max-w-md mx-auto h-full flex flex-col">
       <div className="flex items-center justify-between mb-6 pt-4">
         <h1 className="text-2xl font-bold">Account</h1>
-        {currentUser && !isEditing && (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="text-primary-700 dark:text-primary-500 font-medium text-sm px-4 py-2 bg-primary-50 dark:bg-primary-950/20 rounded-full"
-          >
-            Edit Profile
-          </button>
-        )}
+        <div className="flex items-center space-x-2">
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => navigate('/admin')}
+              className="text-primary-700 dark:text-primary-500 font-medium text-sm px-4 py-2 bg-primary-50 dark:bg-primary-950/20 rounded-full flex items-center"
+            >
+              <Shield size={16} className="mr-1" />
+              Admin
+            </button>
+          )}
+          {currentUser && !isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-primary-700 dark:text-primary-500 font-medium text-sm px-4 py-2 bg-primary-50 dark:bg-primary-950/20 rounded-full"
+            >
+              Edit Profile
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto pb-20 space-y-8">
@@ -102,11 +149,15 @@ export default function Account() {
               </div>
               <button
                 onClick={handleSave}
-                disabled={!name.trim()}
+                disabled={!name.trim() || isSaving}
                 className="w-full py-4 bg-primary-700 text-white rounded-xl font-bold flex items-center justify-center shadow-md disabled:opacity-50 transition-colors"
               >
-                <Save size={20} className="mr-2" />
-                Save Profile
+                {isSaving ? (
+                  <Loader2 size={20} className="animate-spin mr-2" />
+                ) : (
+                  <Save size={20} className="mr-2" />
+                )}
+                {isSaving ? "Saving..." : "Save Profile"}
               </button>
             </div>
           ) : (
@@ -125,11 +176,12 @@ export default function Account() {
               Admin Controls
             </h3>
             
+            {/* Permanent Invite Codes */}
             <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 p-6">
               <div className="mb-4">
-                <h4 className="font-bold text-slate-900 dark:text-slate-100">Invite Codes</h4>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100">Permanent Invite Codes</h4>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  Generate one-time codes to allow friends to join the app.
+                  Generate unlimited codes for permanent app access.
                 </p>
               </div>
 
@@ -139,7 +191,7 @@ export default function Account() {
                     {generatedCode}
                   </span>
                   <button
-                    onClick={copyToClipboard}
+                    onClick={() => copyToClipboard(generatedCode, false)}
                     className="p-2 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
                     title="Copy to clipboard"
                   >
@@ -158,7 +210,47 @@ export default function Account() {
                 ) : (
                   <>
                     <KeyRound size={18} className="mr-2" />
-                    Generate New Code
+                    Generate Permanent Code
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Temporary Invite Codes */}
+            <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm border border-primary-100 dark:border-primary-900/30 p-6">
+              <div className="mb-4">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100">Temporary Invite Codes (Trial)</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Generate codes for a 7-day trial period of the app.
+                </p>
+              </div>
+
+              {generatedTempCode && (
+                <div className="mb-6 p-4 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl flex items-center justify-between">
+                  <span className="font-mono text-xl font-bold tracking-widest text-primary-700 dark:text-primary-400">
+                    {generatedTempCode}
+                  </span>
+                  <button
+                    onClick={() => copyToClipboard(generatedTempCode, true)}
+                    className="p-2 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg transition-colors"
+                    title="Copy to clipboard"
+                  >
+                    {tempCopied ? <Check size={20} /> : <Copy size={20} />}
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={handleGenerateTempCode}
+                disabled={isGeneratingTempCode}
+                className="w-full py-3 bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded-xl font-bold flex items-center justify-center hover:bg-primary-200 dark:hover:bg-primary-800/50 transition-colors disabled:opacity-50"
+              >
+                {isGeneratingTempCode ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    <KeyRound size={18} className="mr-2" />
+                    Generate Temporary Code
                   </>
                 )}
               </button>

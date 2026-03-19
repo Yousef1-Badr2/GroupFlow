@@ -1,4 +1,4 @@
-export type Role = "leader" | "member";
+export type Role = "leader" | "co-leader" | "member";
 
 export interface User {
   id: string;
@@ -9,6 +9,7 @@ export interface User {
   bio?: string;
   isApproved?: boolean;
   role?: 'admin' | 'user';
+  trialExpiresAt?: number;
 }
 
 export interface InviteCode {
@@ -18,6 +19,8 @@ export interface InviteCode {
   usedBy?: string;
   createdBy: string;
   createdAt: number;
+  expiresAt?: number;
+  type: 'permanent' | 'temporary';
 }
 
 export interface Project {

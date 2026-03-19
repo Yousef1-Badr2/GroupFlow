@@ -1,16 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { User, Shield, UserMinus, Key, Copy, Check } from "lucide-react";
+import { User, Shield, UserMinus, Key, Copy, Check, Star, StarOff } from "lucide-react";
 import { useStore } from "../../store";
-import { Project, Role } from "../../types";
+import { Project, Role, ProjectMember } from "../../types";
 import * as firestoreService from "../../lib/firestoreService";
+import { collection, query, onSnapshot } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function MembersSubtab() {
   const { project, userRole } = useOutletContext<{ project: Project; userRole: Role }>();
-  const { members, currentUser, users } = useStore();
+  const { currentUser, users } = useStore();
   const [copied, setCopied] = useState(false);
+  const [localMembers, setLocalMembers] = useState<ProjectMember[]>([]);
 
-  const projectMembers = members.filter(m => m.projectId === project.id);
+  useEffect(() => {
+    const membersQ = query(collection(db, `projects/${project.id}/members`));
+    const unsubscribeMembers = onSnapshot(membersQ, (snapshot) => {
+      setLocalMembers(snapshot.docs.map(d => d.data() as ProjectMember));
+    }, (error) => firestoreService.handleFirestoreError(error, firestoreService.OperationType.LIST, `projects/${project.id}/members`));
+
+    return unsubscribeMembers;
+  }, [project.id]);
+
+  const projectMembers = localMembers;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(project.joinCode);
@@ -32,6 +44,15 @@ export default function MembersSubtab() {
       await firestoreService.removeMember(project.id, memberId);
     } catch (error) {
       console.error("Failed to remove member:", error);
+    }
+  };
+
+  const handleToggleCoLeader = async (memberId: string, currentRole: Role) => {
+    try {
+      const newRole = currentRole === 'co-leader' ? 'member' : 'co-leader';
+      await firestoreService.updateMemberRole(project.id, memberId, newRole);
+    } catch (error) {
+      console.error("Failed to update member role:", error);
     }
   };
 
@@ -97,6 +118,8 @@ export default function MembersSubtab() {
                     <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center mt-0.5">
                       {member.role === 'leader' ? (
                         <><Shield size={12} className="mr-1 text-primary-600" /> Leader</>
+                      ) : member.role === 'co-leader' ? (
+                        <><Star size={12} className="mr-1 text-amber-500" /> Co-Leader</>
                       ) : (
                         'Member'
                       )}
@@ -106,6 +129,18 @@ export default function MembersSubtab() {
 
                 {userRole === 'leader' && !isMe && !project.isArchived && (
                   <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => handleToggleCoLeader(member.userId, member.role)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        member.role === 'co-leader' 
+                          ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40' 
+                          : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                      title={member.role === 'co-leader' ? "Remove Co-Leader" : "Make Co-Leader"}
+                    >
+                      {member.role === 'co-leader' ? <StarOff size={14} /> : <Star size={14} />}
+                      {member.role === 'co-leader' ? 'Demote' : 'Promote'}
+                    </button>
                     <button 
                       onClick={() => handleRemoveMember(member.userId)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 rounded-lg text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
