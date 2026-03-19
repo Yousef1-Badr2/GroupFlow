@@ -47,8 +47,13 @@ export default function FirebaseSync() {
             } else if (userData.trialExpiresAt && Date.now() > userData.trialExpiresAt && userData.isApproved) {
               // Trial expired
               userData.isApproved = false;
+              // Only sync if we actually changed something
               await firestoreService.syncUser(userData);
             }
+            
+            // For existing users, we don't need to sync every time they log in
+            // unless they are new or we changed something (like expiration)
+            setCurrentUser(userData);
           } else {
             userData = {
               id: user.uid,
@@ -60,16 +65,23 @@ export default function FirebaseSync() {
               isApproved: isAdmin,
               role: isAdmin ? 'admin' : 'user'
             };
+            setCurrentUser(userData);
+            await firestoreService.syncUser(userData);
           }
           
-          setCurrentUser(userData);
-          await firestoreService.syncUser(userData);
-
           // Set up real-time listener for the user document
           if (unsubscribeUser) unsubscribeUser();
           unsubscribeUser = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
-              setCurrentUser(snapshot.data() as User);
+              const data = snapshot.data() as User;
+              // Check for trial expiration in the real-time listener too
+              if (data.trialExpiresAt && Date.now() > data.trialExpiresAt && data.isApproved) {
+                const expiredData = { ...data, isApproved: false };
+                setCurrentUser(expiredData);
+                firestoreService.syncUser(expiredData);
+              } else {
+                setCurrentUser(data);
+              }
             }
           });
         } else {
@@ -91,6 +103,23 @@ export default function FirebaseSync() {
       if (unsubscribeUser) unsubscribeUser();
     };
   }, [setCurrentUser, setAuthReady]);
+
+  useEffect(() => {
+    if (!currentUser || !currentUser.isApproved || !currentUser.trialExpiresAt) return;
+
+    const checkExpiration = () => {
+      if (currentUser.trialExpiresAt && Date.now() > currentUser.trialExpiresAt) {
+        const expiredUser = { ...currentUser, isApproved: false };
+        setCurrentUser(expiredUser);
+        firestoreService.syncUser(expiredUser);
+        toast.error("Your trial has expired. Please enter a new invite code.");
+      }
+    };
+
+    // Check every minute
+    const interval = setInterval(checkExpiration, 60000);
+    return () => clearInterval(interval);
+  }, [currentUser, setCurrentUser]);
 
   useEffect(() => {
     if (!currentUser || !currentUser.isApproved) {

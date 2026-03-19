@@ -66,7 +66,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </>
-          ) : !currentUser.isApproved ? (
+          ) : (!currentUser.isApproved || (currentUser.trialExpiresAt && Date.now() > currentUser.trialExpiresAt)) ? (
             <>
               <Route path="/invite" element={<InviteCodeScreen />} />
               <Route path="*" element={<Navigate to="/invite" replace />} />
