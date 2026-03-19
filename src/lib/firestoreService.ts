@@ -13,7 +13,8 @@ import {
   Timestamp,
   writeBatch,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  runTransaction
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { 
@@ -70,6 +71,18 @@ export const syncUser = async (user: User) => {
   }
 };
 
+export const initializeUser = async (user: User) => {
+  try {
+    const userRef = doc(db, 'users', user.id);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, user);
+    }
+  } catch (error) {
+    console.error("Error initializing user:", error);
+  }
+};
+
 export const generateInviteCode = async (adminId: string, type: 'permanent' | 'temporary' = 'permanent') => {
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   const id = uuidv4();
@@ -107,14 +120,21 @@ export const validateAndUseInviteCode = async (userId: string, code: string) => 
   batch.update(doc(db, 'inviteCodes', codeDoc.id), { used: true, usedBy: userId });
   
   const userUpdate: any = { isApproved: true };
+  let trialExpiresAt: number | undefined;
   if (data.type === 'temporary') {
     // Trial lasts 1 week from the moment they use the code
-    userUpdate.trialExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    trialExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    userUpdate.trialExpiresAt = trialExpiresAt;
   }
   
   batch.update(doc(db, 'users', userId), userUpdate);
   
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `batch_invite_code_${userId}`);
+  }
+  return trialExpiresAt;
 };
 
 // Project Services

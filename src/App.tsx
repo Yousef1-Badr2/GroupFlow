@@ -10,6 +10,7 @@ import Account from './pages/Account';
 import Login from './pages/Login';
 import { Toaster } from 'sonner';
 import FirebaseSync from './components/FirebaseSync';
+import { isUserApproved } from './lib/userUtils';
 
 import ProjectDetails from './pages/ProjectDetails';
 import TasksSubtab from './pages/project/TasksSubtab';
@@ -66,7 +67,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </>
-          ) : (!currentUser.isApproved || (currentUser.trialExpiresAt && Date.now() > currentUser.trialExpiresAt)) ? (
+          ) : !isUserApproved(currentUser) ? (
             <>
               <Route path="/invite" element={<InviteCodeScreen />} />
               <Route path="*" element={<Navigate to="/invite" replace />} />

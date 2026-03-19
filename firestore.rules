@@ -36,8 +36,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "yousef1mahmoud2@gmail.com" && request.auth.token.email_verified == true));
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "yousef1mahmoud2@gmail.com" && request.auth.token.email_verified == true)
+        );
     }
 
     function isProjectMember(projectId) {
@@ -45,14 +48,15 @@ service cloud.firestore {
     }
 
     function isProjectLeader(projectId) {
-      return isAuthenticated() && get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'leader';
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'leader';
     }
 
     // Domain Validators
     function isValidUser(data) {
-      return data.keys().hasAll(['id', 'name']) &&
-             data.id is string && data.id.size() > 0 &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+      return (!('id' in data) || data.id is string) &&
+             (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() < 100)) &&
              (!('email' in data) || data.email is string) &&
              (!('photoURL' in data) || data.photoURL is string) &&
              (!('isApproved' in data) || data.isApproved is bool) &&
@@ -73,10 +77,12 @@ service cloud.firestore {
     }
 
     function isValidInviteCode(data) {
-      return data.keys().hasAll(['id', 'code', 'used', 'createdBy', 'createdAt', 'type']) &&
-             data.id is string && data.code is string && data.used is bool &&
-             data.createdBy is string && data.createdAt is number &&
-             data.type in ['permanent', 'temporary'] &&
+      return (!('id' in data) || data.id is string) &&
+             (!('code' in data) || data.code is string) &&
+             (!('used' in data) || data.used is bool) &&
+             (!('createdBy' in data) || data.createdBy is string) &&
+             (!('createdAt' in data) || data.createdAt is number) &&
+             (!('type' in data) || data.type in ['permanent', 'temporary']) &&
              (!('expiresAt' in data) || data.expiresAt is number) &&
              (!('usedBy' in data) || data.usedBy is string);
     }
@@ -101,9 +107,7 @@ service cloud.firestore {
       allow create: if isOwner(userId) && isValidUser(request.resource.data) &&
                     (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) &&
-                    (isAdmin() || (isOwner(userId) && 
-                                   request.resource.data.role == resource.data.role && 
-                                   request.resource.data.isApproved == resource.data.isApproved));
+                    (isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role));
       allow delete: if isAdmin();
     }
 

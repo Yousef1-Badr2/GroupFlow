@@ -4,6 +4,7 @@ import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { validateAndUseInviteCode } from '../lib/firestoreService';
 import { useStore } from '../store';
+import { toast } from 'sonner';
 
 export default function InviteCodeScreen() {
   const [code, setCode] = useState('');
@@ -19,11 +20,33 @@ export default function InviteCodeScreen() {
     setError('');
 
     try {
-      await validateAndUseInviteCode(currentUser.id, code.trim());
+      setIsLoading(true);
+      setError('');
+      
+      const trialExpiresAt = await validateAndUseInviteCode(currentUser.id, code.trim());
+      
       // Update local state to trigger re-render and let the user in
-      setCurrentUser({ ...currentUser, isApproved: true });
+      // We set isApproved to true immediately to bypass the snapshot lag
+      setCurrentUser({ ...currentUser, isApproved: true, trialExpiresAt });
+      
+      toast.success('Invite code accepted! Welcome.');
     } catch (err: any) {
-      setError(err.message || 'Invalid invite code.');
+      console.error('Invite code error:', err);
+      let message = 'Invalid invite code.';
+      
+      try {
+        // Check if it's a JSON error from handleFirestoreError
+        const parsed = JSON.parse(err.message);
+        if (parsed.error && (parsed.error.includes('insufficient permissions') || parsed.error.includes('Missing or insufficient permissions'))) {
+          message = 'Permission denied. Please try again or contact support.';
+        } else {
+          message = parsed.error || message;
+        }
+      } catch {
+        message = err.message || message;
+      }
+      
+      setError(message);
     } finally {
       setIsLoading(false);
     }

@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { isUserApproved, getTimestamp } from '../lib/userUtils';
 
 export default function FirebaseSync() {
   const navigate = useNavigate();
@@ -44,11 +45,14 @@ export default function FirebaseSync() {
             if (isAdmin) {
               userData.isApproved = true;
               userData.role = 'admin';
-            } else if (userData.trialExpiresAt && Date.now() > userData.trialExpiresAt && userData.isApproved) {
-              // Trial expired
-              userData.isApproved = false;
-              // Only sync if we actually changed something
-              await firestoreService.syncUser(userData);
+            } else if (userData.trialExpiresAt) {
+              const trialExpiresAt = getTimestamp(userData.trialExpiresAt);
+              if (Date.now() > trialExpiresAt && userData.isApproved) {
+                // Trial expired
+                userData.isApproved = false;
+                // Only sync if we actually changed something
+                await firestoreService.syncUser(userData);
+              }
             }
             
             // For existing users, we don't need to sync every time they log in
@@ -66,7 +70,8 @@ export default function FirebaseSync() {
               role: isAdmin ? 'admin' : 'user'
             };
             setCurrentUser(userData);
-            await firestoreService.syncUser(userData);
+            // Use initializeUser to avoid overwriting existing data if a race condition occurs
+            await firestoreService.initializeUser(userData);
           }
           
           // Set up real-time listener for the user document
@@ -74,15 +79,40 @@ export default function FirebaseSync() {
           unsubscribeUser = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
               const data = snapshot.data() as User;
+              const isAdminUser = data.email === 'yousef1mahmoud2@gmail.com';
+              
+              if (isAdminUser) {
+                // Admin is always approved
+                if (!data.isApproved || data.role !== 'admin') {
+                  const adminData = { ...data, isApproved: true, role: 'admin' as const };
+                  setCurrentUser(adminData);
+                  firestoreService.syncUser(adminData);
+                } else {
+                  setCurrentUser(data);
+                }
+                return;
+              }
+
+              // Check if the user was just approved locally (e.g., via invite code)
+              // We don't want to overwrite with a stale 'isApproved: false' from Firestore
+              if (currentUser && currentUser.id === data.id && currentUser.isApproved && !data.isApproved) {
+                console.log('Snapshot is stale (not approved yet), keeping local approved state');
+                return;
+              }
+
+              const trialExpiresAt = getTimestamp(data.trialExpiresAt);
               // Check for trial expiration in the real-time listener too
-              if (data.trialExpiresAt && Date.now() > data.trialExpiresAt && data.isApproved) {
+              if (trialExpiresAt && Date.now() > trialExpiresAt && data.isApproved) {
                 const expiredData = { ...data, isApproved: false };
                 setCurrentUser(expiredData);
                 firestoreService.syncUser(expiredData);
+                toast.error("Your trial has expired. Please enter a new invite code.");
               } else {
                 setCurrentUser(data);
               }
             }
+          }, (error) => {
+            console.error("User snapshot error:", error);
           });
         } else {
           setCurrentUser(null);
@@ -105,10 +135,11 @@ export default function FirebaseSync() {
   }, [setCurrentUser, setAuthReady]);
 
   useEffect(() => {
-    if (!currentUser || !currentUser.isApproved || !currentUser.trialExpiresAt) return;
+    if (!currentUser || !currentUser.trialExpiresAt || currentUser.role === 'admin') return;
 
     const checkExpiration = () => {
-      if (currentUser.trialExpiresAt && Date.now() > currentUser.trialExpiresAt) {
+      const trialExpiresAt = getTimestamp(currentUser.trialExpiresAt);
+      if (trialExpiresAt && Date.now() > trialExpiresAt && currentUser.isApproved) {
         const expiredUser = { ...currentUser, isApproved: false };
         setCurrentUser(expiredUser);
         firestoreService.syncUser(expiredUser);
@@ -122,7 +153,7 @@ export default function FirebaseSync() {
   }, [currentUser, setCurrentUser]);
 
   useEffect(() => {
-    if (!currentUser || !currentUser.isApproved) {
+    if (!isUserApproved(currentUser)) {
       setProjects([]);
       setMembers([]);
       setTasks([]);
